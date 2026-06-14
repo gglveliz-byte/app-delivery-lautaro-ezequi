@@ -3,6 +3,7 @@ import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { orders, orderItems, orderStatusHistory, products, drivers, commerces, customers, driverEarnings } from "@db/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { emit } from "./events";
 
 export const orderRouter = createRouter({
   create: publicQuery
@@ -82,6 +83,12 @@ export const orderRouter = createRouter({
           orderId,
           status: "received",
           notes: "Pedido recibido",
+        });
+
+        // Emit SSE events to notify commerces about new order
+        const commerceIds = [...new Set(itemsData.map(i => i.commerceId))];
+        commerceIds.forEach(cId => {
+          emit(`commerce:${cId}`, { type: "new_order", orderId });
         });
 
         return newOrder;
@@ -249,6 +256,15 @@ getAvailableForDriver: publicQuery.query(async () => {
         }
 
         const updated = await tx.select().from(orders).where(eq(orders.id, input.id));
+
+        // Emit SSE event to notify order status change
+        emit(`order:${input.id}`, { type: "status_update", status: input.status, driverId: input.driverId });
+
+        // If order was accepted/preparing, notify drivers about available order
+        if (input.status === "accepted" || input.status === "preparing") {
+          emit("driver:all", { type: "new_available", orderId: input.id });
+        }
+
         return updated[0];
       });
 

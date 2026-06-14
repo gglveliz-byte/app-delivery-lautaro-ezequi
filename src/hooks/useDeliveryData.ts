@@ -142,7 +142,6 @@ export function useOrder(id: number) {
     queryKey: ["order.getById", id],
     queryFn: () => trpcCall<any>("order.getById", { id }),
     enabled: Boolean(id),
-    refetchInterval: 10000,
   });
   return { data: query.data ?? null, loading: query.isLoading, refresh: query.refetch };
 }
@@ -161,7 +160,6 @@ export function useCommerceOrders(commerceId: number) {
     queryKey: ["order.getCommerceOrders", commerceId],
     queryFn: () => trpcCall<any[]>("order.getCommerceOrders", { commerceId }),
     enabled: Boolean(commerceId),
-    refetchInterval: 10000,
   });
   return { data: query.data ?? [], loading: query.isLoading };
 }
@@ -413,7 +411,6 @@ export function useDriverOrders(driverId: number) {
     queryKey: ["driver.getActiveOrders", driverId],
     queryFn: () => trpcCall<any[]>("driver.getActiveOrders", { id: driverId }),
     enabled: Boolean(driverId),
-    refetchInterval: 10000,
   });
   return { data: query.data ?? [], loading: query.isLoading };
 }

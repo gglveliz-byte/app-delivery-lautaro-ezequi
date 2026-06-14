@@ -1,10 +1,12 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { streamSSE } from "hono/streaming";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { subscribe } from "./events";
 
 async function seedAdmin() {
   try {
@@ -29,6 +31,56 @@ app.use("*", async (c, next) => {
 });
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
+
+// SSE endpoints for real-time updates
+app.get("/api/events/orders/:orderId", async (c) => {
+  const orderId = c.req.param("orderId");
+  return streamSSE(c, async (stream) => {
+    const unsubscribe = subscribe(`order:${orderId}`, (data) => {
+      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
+    });
+
+    // Keep connection alive
+    while (true) {
+      await stream.sleep(30000);
+      stream.writeSSE({ data: "ping", event: "ping" });
+    }
+
+    unsubscribe();
+  });
+});
+
+app.get("/api/events/commerce/:commerceId", async (c) => {
+  const commerceId = c.req.param("commerceId");
+  return streamSSE(c, async (stream) => {
+    const unsubscribe = subscribe(`commerce:${commerceId}`, (data) => {
+      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
+    });
+
+    while (true) {
+      await stream.sleep(30000);
+      stream.writeSSE({ data: "ping", event: "ping" });
+    }
+
+    unsubscribe();
+  });
+});
+
+app.get("/api/events/driver/:driverId", async (c) => {
+  const driverId = c.req.param("driverId");
+  return streamSSE(c, async (stream) => {
+    const unsubscribe = subscribe(`driver:${driverId}`, (data) => {
+      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
+    });
+
+    while (true) {
+      await stream.sleep(30000);
+      stream.writeSSE({ data: "ping", event: "ping" });
+    }
+
+    unsubscribe();
+  });
+});
 
 app.all("/api/trpc/*", async (c) => {
   console.log("[tRPC] matched:", c.req.method, c.req.path);

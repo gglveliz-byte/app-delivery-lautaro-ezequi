@@ -3,6 +3,7 @@ import { createRouter, publicQuery, driverQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { drivers, driverEarnings, orders, orderStatusHistory } from "@db/schema";
 import { eq, and, inArray, desc, sql } from "drizzle-orm";
+import { emit } from "./events";
 
 export const driverRouter = createRouter({
   list: publicQuery.query(async () => {
@@ -62,6 +63,10 @@ export const driverRouter = createRouter({
         .update(drivers)
         .set({ currentLat: input.lat, currentLng: input.lng })
         .where(eq(drivers.id, input.id));
+
+      // Emit SSE event to notify about driver location update
+      emit(`driver:${input.id}`, { type: "location_update", lat: input.lat, lng: input.lng });
+
       return { success: true };
     }),
 
@@ -152,6 +157,11 @@ export const driverRouter = createRouter({
         await tx.update(drivers).set({ status: "busy" }).where(eq(drivers.id, input.driverId));
 
         const updated = await tx.select().from(orders).where(eq(orders.id, input.orderId));
+
+        // Emit SSE events to notify about order assignment
+        emit(`order:${input.orderId}`, { type: "status_update", status: "driver_assigned", driverId: input.driverId });
+        emit(`driver:${input.driverId}`, { type: "order_assigned", orderId: input.orderId });
+
         return updated[0];
       });
 

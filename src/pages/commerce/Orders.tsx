@@ -4,6 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, Package, ChevronDown,
 } from "lucide-react";
 import { useMerchantCommerceId, useCommerceOrders, useUpdateOrderStatus } from "@/hooks/useDeliveryData";
+import { useCommerceEvents } from "@/hooks/useOrderEvents";
 
 export default function CommerceOrders() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function CommerceOrders() {
   const { commerceId } = useMerchantCommerceId();
   const updateOrderStatus = useUpdateOrderStatus(commerceId || undefined);
   const { data: orders, loading } = useCommerceOrders(commerceId || 0);
+  useCommerceEvents(commerceId || undefined);
 
   const handleStatusUpdate = async (orderId: number, status: string) => {
     try {

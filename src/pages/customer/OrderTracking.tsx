@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, MessageCircle, Phone, MapPin, Navigation, Clock } from "lucide-react";
 import { useOrder } from "@/hooks/useDeliveryData";
+import { useOrderEvents } from "@/hooks/useOrderEvents";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -76,6 +77,7 @@ export default function OrderTracking() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: order, loading } = useOrder(Number(id));
+  useOrderEvents(Number(id));
   const [driverPos, setDriverPos] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
@@ -202,26 +204,29 @@ export default function OrderTracking() {
     }
   }, [order, driverPos, deliveryCoords]);
 
-  // Poll driver location
+  // Listen to SSE for driver location updates
   useEffect(() => {
     if (!order?.driver?.id) return;
 
-    const interval = setInterval(async () => {
+    const eventSource = new EventSource(`/api/events/driver/${order.driver.id}`);
+
+    eventSource.onmessage = (event) => {
       try {
-        const res = await fetch(`/api/trpc/order.getById?input=${encodeURIComponent(JSON.stringify({ json: { id: Number(id) }, meta: {} }))}`);
-        const data = await res.json();
-        const updatedOrder = data?.result?.data?.json;
-        if (updatedOrder?.driver?.currentLat && updatedOrder?.driver?.currentLng) {
-          setDriverPos({
-            lat: parseFloat(updatedOrder.driver.currentLat),
-            lng: parseFloat(updatedOrder.driver.currentLng),
-          });
+        const data = JSON.parse(event.data);
+        if (data.type === "location_update" && data.lat && data.lng) {
+          setDriverPos({ lat: parseFloat(data.lat), lng: parseFloat(data.lng) });
         }
       } catch {}
-    }, 5000);
+    };
 
-    return () => clearInterval(interval);
-  }, [order?.driver?.id, id]);
+    eventSource.onerror = () => {
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [order?.driver?.id]);
 
   if (loading) {
     return (

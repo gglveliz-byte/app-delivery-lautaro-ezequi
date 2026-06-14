@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import { MapPin, Clock, Navigation, User, Settings, List, BarChart3, Loader2 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { useDriverSession } from "@/hooks/useDeliveryData";
+import { useDriverEvents } from "@/hooks/useOrderEvents";
 import { useState, useEffect } from "react";
 
 function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -22,10 +23,11 @@ export default function DriverHome() {
   const [isOnline, setIsOnline] = useState(true);
 
   const utils = trpc.useUtils();
+  useDriverEvents(driverId || undefined);
 
   const { data: availableOrders, isLoading } = trpc.order.getAvailableForDriver.useQuery(
     undefined,
-    { enabled: !!driverId, refetchInterval: 10000 }
+    { enabled: !!driverId }
   );
 
   const { data: driverProfile } = trpc.driver.getById.useQuery(

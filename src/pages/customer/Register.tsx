@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import { ArrowLeft, User, MapPin, Navigation } from "lucide-react";
 import { useCustomerSession } from "@/hooks/useCustomerSession";
 import { registerCustomer } from "@/hooks/useDeliveryData";
-import { usePWAInstall } from "@/hooks/usePWAInstall";
 import PhoneInput from "@/components/PhoneInput";
 
 async function getAddressFromCoords(lat: number, lng: number): Promise<string> {
@@ -23,7 +22,6 @@ async function getAddressFromCoords(lat: number, lng: number): Promise<string> {
 export default function Register() {
   const navigate = useNavigate();
   const { login } = useCustomerSession();
-  const { triggerPrompt } = usePWAInstall();
   const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", address: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -63,7 +61,6 @@ export default function Register() {
       if (result.success && result.customer) {
         sessionStorage.clear();
         login(result.customer);
-        triggerPrompt();
         localStorage.setItem("qs_session", JSON.stringify({ role: "customer", ts: Date.now() }));
         navigate("/home");
       } else {
