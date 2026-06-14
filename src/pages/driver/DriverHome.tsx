@@ -25,7 +25,7 @@ export default function DriverHome() {
 
   const { data: availableOrders, isLoading } = trpc.order.getAvailableForDriver.useQuery(
     undefined,
-    { enabled: !!driverId }
+    { enabled: !!driverId, refetchInterval: 10000 }
   );
 
   const { data: driverProfile } = trpc.driver.getById.useQuery(

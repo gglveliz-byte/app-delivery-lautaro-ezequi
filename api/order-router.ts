@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { orders, orderItems, orderStatusHistory, products, drivers, commerces, customers, driverEarnings } from "@db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
 export const orderRouter = createRouter({
   create: publicQuery
@@ -177,7 +177,7 @@ getAvailableForDriver: publicQuery.query(async () => {
       .leftJoin(commerces, eq(commerces.id, orderItems.commerceId))
       .where(
         and(
-          eq(orders.status, "preparing"),
+          inArray(orders.status, ["accepted", "preparing"]),
           sql`${orders.driverId} IS NULL`
         )
       )
