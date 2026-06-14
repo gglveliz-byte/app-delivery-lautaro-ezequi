@@ -8,12 +8,13 @@ export default function CustomerSearch() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const categoryId = searchParams.get("category");
+  const queryParam = searchParams.get("q");
 
   const { data: categories } = useCategories();
   const { data: commerces } = useCommerces();
   const { data: featuredProducts } = useFeaturedProducts();
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(queryParam || "");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(
     categoryId ? parseInt(categoryId) : null
   );
@@ -21,6 +22,10 @@ export default function CustomerSearch() {
   useEffect(() => {
     if (categoryId) setSelectedCategory(parseInt(categoryId));
   }, [categoryId]);
+
+  useEffect(() => {
+    if (queryParam) setQuery(queryParam);
+  }, [queryParam]);
 
   const filteredCommerces = commerces.filter((c) => {
     const matchesQuery =

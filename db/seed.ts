@@ -1,49 +1,39 @@
+import "dotenv/config";
 import { getDb } from "../api/queries/connection";
-import {
-  categories,
-  commerces,
-  products,
-  drivers,
-  driverEarnings,
-  customers,
-  orders,
-  orderItems,
-  orderStatusHistory,
-  chatMessages,
-  appSettings,
-  users,
-} from "../db/schema";
+import { categories, commerces, products, appSettings, users } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 async function seed() {
   const db = getDb();
 
-  // Clear existing data
-  await db.delete(chatMessages);
-  await db.delete(orderStatusHistory);
-  await db.delete(orderItems);
-  await db.delete(driverEarnings);
-  await db.delete(orders);
-  await db.delete(products);
-  await db.delete(commerces);
-  await db.delete(categories);
-  await db.delete(drivers);
-  await db.delete(customers);
-  await db.delete(appSettings);
+  // Clear all tables
+  await db.execute(sql`DELETE FROM order_status_history`);
+  await db.execute(sql`DELETE FROM chat_messages`);
+  await db.execute(sql`DELETE FROM driver_earnings`);
+  await db.execute(sql`DELETE FROM order_items`);
+  await db.execute(sql`DELETE FROM orders`);
+  await db.execute(sql`DELETE FROM products`);
+  await db.execute(sql`DELETE FROM commerces`);
+  await db.execute(sql`DELETE FROM categories`);
+  await db.execute(sql`DELETE FROM customers`);
+  await db.execute(sql`DELETE FROM drivers`);
+  await db.execute(sql`DELETE FROM users`);
+  await db.execute(sql`DELETE FROM app_settings`);
 
-// Reset auto-increment sequences
-   await db.execute(sql`SELECT setval('categories_id_seq', 1, false)`);
-   await db.execute(sql`SELECT setval('commerces_id_seq', 1, false)`);
-   await db.execute(sql`SELECT setval('products_id_seq', 1, false)`);
-   await db.execute(sql`SELECT setval('drivers_id_seq', 1, false)`);
-   await db.execute(sql`SELECT setval('customers_id_seq', 1, false)`);
-   await db.execute(sql`SELECT setval('orders_id_seq', 1, false)`);
-   await db.execute(sql`SELECT setval('order_items_id_seq', 1, false)`);
-   await db.execute(sql`SELECT setval('driver_earnings_id_seq', 1, false)`);
+  // Reset auto-increment sequences
+  await db.execute(sql`SELECT setval('categories_id_seq', 1, false)`);
+  await db.execute(sql`SELECT setval('commerces_id_seq', 1, false)`);
+  await db.execute(sql`SELECT setval('products_id_seq', 1, false)`);
+  await db.execute(sql`SELECT setval('drivers_id_seq', 1, false)`);
+  await db.execute(sql`SELECT setval('customers_id_seq', 1, false)`);
+  await db.execute(sql`SELECT setval('orders_id_seq', 1, false)`);
+  await db.execute(sql`SELECT setval('order_items_id_seq', 1, false)`);
+  await db.execute(sql`SELECT setval('driver_earnings_id_seq', 1, false)`);
+  await db.execute(sql`SELECT setval('app_settings_id_seq', 1, false)`);
 
   console.log("Seeding categories...");
-  const cats = await db.insert(categories).values([
+  await db.insert(categories).values([
     { name: "Comidas", icon: "UtensilsCrossed", color: "#E65100", sortOrder: 1 },
     { name: "Panaderías", icon: "Croissant", color: "#F9A825", sortOrder: 2 },
     { name: "Supermercados", icon: "ShoppingCart", color: "#2E7D32", sortOrder: 3 },
@@ -55,7 +45,7 @@ async function seed() {
   ]);
 
   console.log("Seeding commerces...");
-  const comms = await db.insert(commerces).values([
+  await db.insert(commerces).values([
     {
       name: "Burger King Express",
       description: "Las mejores hamburguesas de la ciudad. Carne 100% nacional, pan artesanal y salsas caseras.",
@@ -239,7 +229,7 @@ async function seed() {
   ]);
 
   console.log("Seeding products...");
-  const prods = await db.insert(products).values([
+  await db.insert(products).values([
     // Burger King products
     { commerceId: 1, name: "Hamburguesa Clásica", description: "Carne 150g, queso cheddar, lechuga, tomate, cebolla y salsa especial", price: "6.50", image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&h=300&fit=crop", category: "Hamburguesas", isFeatured: "yes" },
     { commerceId: 1, name: "Hamburguesa Doble", description: "Doble carne 300g, doble queso, tocino, cebolla crispy", price: "9.90", image: "https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=300&h=300&fit=crop", category: "Hamburguesas", isFeatured: "yes" },
@@ -321,128 +311,47 @@ async function seed() {
     { commerceId: 10, name: "Zanahorias 1kg", description: "Zanahorias orgánicas frescas", price: "1.30", image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=300&h=300&fit=crop", category: "Verduras", isFeatured: "no" },
   ]);
 
-  console.log("Seeding customers...");
-  const custs = await db.insert(customers).values([
-    { firstName: "Juan", lastName: "Pérez", phone: "555-2001", address: "Av. Siempre Viva 742, Departamento 5B" },
-    { firstName: "María", lastName: "López", phone: "555-2002", address: "Calle Los Pinos 123, Casa 8" },
-    { firstName: "Pedro", lastName: "González", phone: "555-2003", address: "Av. Libertad 456, Torre A, Piso 12" },
-    { firstName: "Ana", lastName: "Martínez", phone: "555-2004", address: "Calle del Sol 789, Villa Nueva" },
-  ]);
-
-  console.log("Seeding drivers...");
-  const driverHash = await bcrypt.hash("driver123", 10);
-  const drvs = await db.insert(drivers).values([
-    { name: "Carlos Mendoza", phone: "5551001", passwordHash: driverHash, vehicle: "Moto Honda CB190", licensePlate: "ABC-123", status: "online", rating: "4.8", totalEarnings: "1250.00", currentLat: "-33.45", currentLng: "-70.65" },
-    { name: "María García", phone: "5551002", passwordHash: driverHash, vehicle: "Moto Yamaha FZ", licensePlate: "XYZ-789", status: "online", rating: "4.9", totalEarnings: "1890.50", currentLat: "-33.44", currentLng: "-70.66" },
-    { name: "Pedro Sánchez", phone: "5551003", passwordHash: driverHash, vehicle: "Moto Suzuki GS", licensePlate: "DEF-456", status: "busy", rating: "4.6", totalEarnings: "980.00", currentLat: "-33.46", currentLng: "-70.64" },
-    { name: "Ana Torres", phone: "5551004", passwordHash: driverHash, vehicle: "Auto Hyundai", licensePlate: "GHI-789", status: "online", rating: "4.7", totalEarnings: "2100.00", currentLat: "-33.43", currentLng: "-70.67" },
-    { name: "Luis Ramírez", phone: "5551005", passwordHash: driverHash, vehicle: "Moto Kawasaki", licensePlate: "JKL-012", status: "offline", rating: "4.5", totalEarnings: "750.00", currentLat: "-33.47", currentLng: "-70.63" },
-  ]);
-
-  console.log("Seeding orders...");
-  const sampleOrders = [];
-  const sampleOrderItems = [];
-  const sampleStatusHistory = [];
-  const statuses = ["delivered", "delivered", "delivered", "delivered", "delivered", "delivered", "delivered", "delivered", "on_the_way", "preparing", "received"] as const;
-  for (let i = 0; i < 11; i++) {
-    const customerId = (i % 4) + 1;
-    const driverId = (i < 8) ? ((i % 3) + 1) : null;
-    const commerceId = (i % 5) + 1;
-    const subtotal = (15 + i * 3.5).toFixed(2);
-    const deliveryFee = "2.50";
-    const commission = (parseFloat(subtotal) * 0.08).toFixed(2);
-    const total = (parseFloat(subtotal) + 2.5 + parseFloat(commission)).toFixed(2);
-    sampleOrders.push({
-      customerId,
-      driverId,
-      status: statuses[i],
-      subtotal,
-      deliveryFee,
-      commission,
-      total,
-      paymentMethod: "cash" as const,
-      deliveryAddress: "Dirección de entrega " + (i + 1),
-      customerPhone: "555-200" + (customerId),
-    });
-  }
-  const insertedOrders = await db.insert(orders).values(sampleOrders).returning();
-
-  for (let i = 0; i < insertedOrders.length; i++) {
-    const commerceId = (i % 5) + 1;
-    const productId = (i % 10) + 1;
-    const qty = 1 + (i % 3);
-    const unitPrice = (15 + i * 3.5).toFixed(2);
-    sampleOrderItems.push({
-      orderId: insertedOrders[i].id,
-      productId,
-      commerceId,
-      productName: `Producto ${productId}`,
-      quantity: qty,
-      unitPrice,
-      total: (parseFloat(unitPrice) * qty).toFixed(2),
-    });
-    sampleStatusHistory.push({
-      orderId: insertedOrders[i].id,
-      status: "received",
-      notes: "Pedido recibido",
-    });
-  }
-  await db.insert(orderItems).values(sampleOrderItems);
-  await db.insert(orderStatusHistory).values(sampleStatusHistory);
-
-  console.log("Seeding driver earnings...");
-  await db.insert(driverEarnings).values(
-    insertedOrders.filter((o, i) => i < 8).map((o, i) => ({
-      driverId: o.driverId!,
-      orderId: o.id,
-      amount: "2.50",
-      type: "delivery_fee" as const,
-      date: i < 5 ? "2026-06-10" : "2026-06-09",
-    }))
-  );
-
-  console.log("Seeding settings...");
+  // Seed app settings
+  console.log("Seeding app settings...");
   await db.insert(appSettings).values([
-    { key: "delivery_fee", value: "2.50" },
-    { key: "commission_rate", value: "8.00" },
-    { key: "min_order_amount", value: "3.00" },
-    { key: "app_name", value: "DeliveryCity" },
-    { key: "support_phone", value: "555-HELP" },
+    { key: "app_name", value: "YA LLEGA" },
+    { key: "support_phone", value: "+54 9 11 1234-5678" },
+    { key: "delivery_fee", value: "500" },
+    { key: "commission_rate", value: "15" },
+    { key: "min_order_amount", value: "2000" },
   ]);
 
+  // Seed admin user
   console.log("Seeding admin user...");
-  const hash = await bcrypt.hash("admin123", 10);
+  const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+  const adminHash = await bcrypt.hash(adminPassword, 10);
+  await db.insert(users).values([
+    {
+      unionId: "admin-local",
+      email: "admin@admin.com",
+      name: "Administrador",
+      passwordHash: adminHash,
+      role: "admin",
+    },
+  ]);
 
-  async function seedUser(email: string, data: any) {
-    const exists = await db.select().from(users).where(eq(users.email, email));
-    if (exists.length === 0) {
-      await db.insert(users).values(data);
-    }
-  }
+  // Seed merchant users
+  console.log("Seeding merchant users...");
+  const merchantHash = await bcrypt.hash("merchant123", 10);
+  await db.insert(users).values([
+    { unionId: "merchant-1", email: "burger@merchant.com", name: "Burger King Express", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-2", email: "sushi@merchant.com", name: "Sushi Roll", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-3", email: "panaderia@merchant.com", name: "Panadería San José", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-4", email: "super@merchant.com", name: "SuperMax Ciudad", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-5", email: "farmacia@merchant.com", name: "Farmacias Salud", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-6", email: "helados@merchant.com", name: "Helados Artesanales Primavera", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-7", email: "cafe@merchant.com", name: "Café Central", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-8", email: "petshop@merchant.com", name: "PetShop Amigo Fiel", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-9", email: "pizza@merchant.com", name: "Pizza Napoli", passwordHash: merchantHash, role: "merchant" },
+    { unionId: "merchant-10", email: "mercado@merchant.com", name: "Mercado Verde", passwordHash: merchantHash, role: "merchant" },
+  ]);
 
-  await seedUser("admin@quickgo.com", {
-    unionId: "admin-local",
-    name: "Admin",
-    email: "admin@quickgo.com",
-    passwordHash: hash,
-    role: "admin",
-  });
-  await seedUser("burger@quickgo.com", {
-    unionId: "merchant-1",
-    name: "Burger King Express",
-    email: "burger@quickgo.com",
-    passwordHash: hash,
-    role: "merchant",
-  });
-  await seedUser("sushi@quickgo.com", {
-    unionId: "merchant-2",
-    name: "Sushi Roll",
-    email: "sushi@quickgo.com",
-    passwordHash: hash,
-    role: "merchant",
-  });
-
-  console.log("Seed completed successfully!");
+  console.log("Seed completed!");
 }
 
 seed().catch(console.error);

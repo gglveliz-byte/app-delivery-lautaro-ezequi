@@ -1,6 +1,6 @@
 {
-  "name": "QuickGo",
-  "short_name": "QuickGo",
+  "name": "YA LLEGA",
+  "short_name": "YA LLEGA",
   "description": "Plataforma de delivery multi-comercio",
   "start_url": "/",
   "display": "standalone",
@@ -8,14 +8,16 @@
   "theme_color": "#2E7D32",
   "icons": [
     {
-      "src": "/icon-192.svg",
+      "src": "/logotipo.jpeg",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/jpeg",
+      "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.svg",
+      "src": "/logotipo.jpeg",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/jpeg",
+      "purpose": "any maskable"
     }
   ]
 }

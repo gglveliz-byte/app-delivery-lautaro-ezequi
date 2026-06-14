@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   Search,
@@ -40,11 +40,45 @@ export default function CustomerHome() {
   const { data: categories } = useCategories();
   const { data: commerces, loading: loadingCommerces } = useCommerces();
   const { data: featuredProducts, loading: loadingFeatured } = useFeaturedProducts();
-  const [searchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
-  const filteredCommerces = searchQuery
-    ? commerces.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : commerces;
+  const activeCategories = useMemo(() => {
+    const ids = new Set(commerces.map((c) => c.categoryId));
+    return categories.filter((c) => ids.has(c.id));
+  }, [categories, commerces]);
+
+  const filteredCommerces = useMemo(() => {
+    let result = commerces;
+    if (searchQuery) {
+      result = result.filter((c) =>
+        c.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    if (selectedCategory) {
+      result = result.filter((c) => c.categoryId === selectedCategory);
+    }
+    return result;
+  }, [commerces, searchQuery, selectedCategory]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery) return featuredProducts;
+    return featuredProducts.filter((p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.commerceName || "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [featuredProducts, searchQuery]);
+
+  const handleCategoryClick = (catId: number) => {
+    setSelectedCategory(selectedCategory === catId ? null : catId);
+    setSearchQuery("");
+  };
+
+  const handleSearchSubmit = () => {
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   return (
     <div className="mobile-container bg-gray-50 min-h-screen pb-20">
@@ -52,9 +86,7 @@ export default function CustomerHome() {
       <div className="bg-[#2E7D32] px-4 pt-4 pb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-white" />
-            </div>
+            <img src="/logotipo.jpeg" alt="YA LLEGA" className="w-8 h-8 rounded-full object-cover" />
             <div>
               <p className="text-white/70 text-xs">Hola,</p>
               <p className="text-white font-medium text-sm">{customer?.firstName || "Invitado"}</p>
@@ -79,72 +111,125 @@ export default function CustomerHome() {
         </div>
 
         {/* Search */}
-        <div
-          className="bg-white/20 backdrop-blur-sm rounded-full h-12 flex items-center px-4 gap-2 cursor-pointer"
-          onClick={() => navigate("/search")}
-        >
-          <Search className="w-5 h-5 text-white/70" />
-          <span className="text-white/60 text-sm">Que deseas pedir hoy?</span>
+        <div className="bg-white rounded-full h-11 flex items-center px-4 gap-2 shadow-sm">
+          <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
+            placeholder="¿Qué deseas pedir hoy?"
+            className="flex-1 text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="text-gray-400 hover:text-gray-600">
+              <span className="text-lg leading-none">×</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Categories */}
+      {/* Categories - Grid 4x2 */}
       <div className="px-4 mt-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-800">Categorias</h2>
+          <h2 className="text-base font-semibold text-gray-800">Categorías</h2>
+          {selectedCategory && (
+            <button
+              onClick={() => setSelectedCategory(null)}
+              className="text-[#2E7D32] text-xs font-medium flex items-center gap-0.5"
+            >
+              Ver todas
+            </button>
+          )}
         </div>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-          {categories.map((cat) => (
+        <div className="grid grid-cols-4 gap-3">
+          {activeCategories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => navigate(`/search?category=${cat.id}`)}
-              className="flex flex-col items-center gap-1.5 min-w-[68px]"
+              onClick={() => handleCategoryClick(cat.id)}
+              className={`flex flex-col items-center gap-1.5 py-2 rounded-xl transition-all ${
+                selectedCategory === cat.id
+                  ? "bg-[#2E7D32]/10 scale-95"
+                  : "active:scale-95"
+              }`}
             >
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-white"
+                className={`w-11 h-11 rounded-xl flex items-center justify-center text-white ${
+                  selectedCategory === cat.id ? "ring-2 ring-[#2E7D32] ring-offset-1" : ""
+                }`}
                 style={{ backgroundColor: cat.color || "#2E7D32" }}
               >
                 {iconMap[cat.icon] || <MoreHorizontal className="w-5 h-5" />}
               </div>
-              <span className="text-xs text-gray-600 text-center leading-tight">{cat.name}</span>
+              <span className="text-[11px] text-gray-600 text-center leading-tight truncate w-full px-1">
+                {cat.name}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Popular Products */}
-      <div className="px-4 mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-800">Productos populares</h2>
-          <button onClick={() => navigate("/search")} className="text-[#2E7D32] text-xs font-medium flex items-center gap-0.5">
-            Ver todo <ChevronRight className="w-3 h-3" />
-          </button>
+      {!selectedCategory && !searchQuery && (
+        <div className="px-4 mt-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-gray-800">Productos populares</h2>
+            <button onClick={() => navigate("/search")} className="text-[#2E7D32] text-xs font-medium flex items-center gap-0.5">
+              Ver todo <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+          {loadingFeatured ? (
+            <div className="flex gap-3 overflow-x-auto no-scrollbar">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="min-w-[160px] h-48 bg-gray-200 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+              {filteredProducts.slice(0, 8).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
         </div>
-        {loadingFeatured ? (
-          <div className="flex gap-3 overflow-x-auto no-scrollbar">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="min-w-[160px] h-48 bg-gray-200 rounded-xl animate-pulse" />
+      )}
+
+      {/* Search Results */}
+      {(searchQuery || selectedCategory) && filteredProducts.length > 0 && !selectedCategory && (
+        <div className="px-4 mt-5">
+          <h2 className="text-sm font-medium text-gray-500 mb-2">
+            Productos ({filteredProducts.length})
+          </h2>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {filteredProducts.slice(0, 6).map((product) => (
+              <ProductCardGrid key={product.id} product={product} />
             ))}
           </div>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-            {featuredProducts.slice(0, 8).map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Commerces List */}
-      <div className="px-4 mt-6">
+      <div className="px-4 mt-5">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-800">Comercios</h2>
+          <h2 className="text-base font-semibold text-gray-800">
+            {selectedCategory
+              ? `Comercios (${filteredCommerces.length})`
+              : searchQuery
+                ? `Resultados (${filteredCommerces.length})`
+                : "Comercios"
+            }
+          </h2>
         </div>
         {loadingCommerces ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse" />
             ))}
+          </div>
+        ) : filteredCommerces.length === 0 ? (
+          <div className="text-center py-8">
+            <Search className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-gray-500 text-sm">No se encontraron comercios</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -188,6 +273,43 @@ function ProductCard({ product }: { product: any }) {
                 commerceName: product.commerceName,
               })
             }
+            className="w-7 h-7 bg-[#2E7D32] text-white rounded-lg flex items-center justify-center hover:bg-[#1B5E20] active:scale-90 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductCardGrid({ product }: { product: any }) {
+  const navigate = useNavigate();
+  const { addItem } = useCart();
+
+  return (
+    <div className="bg-white rounded-xl card-shadow overflow-hidden cursor-pointer" onClick={() => navigate(`/commerce/${product.commerceId}`)}>
+      <div
+        className="h-28 bg-gray-100 bg-cover bg-center"
+        style={{ backgroundImage: `url(${product.image})` }}
+      />
+      <div className="p-2.5">
+        <p className="text-xs text-gray-500 truncate">{product.commerceName}</p>
+        <p className="text-sm font-medium text-gray-800 truncate mt-0.5">{product.name}</p>
+        <div className="flex items-center justify-between mt-1.5">
+          <span className="text-sm font-bold text-[#2E7D32]">${product.price}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              addItem({
+                productId: product.id,
+                commerceId: product.commerceId,
+                name: product.name,
+                price: product.price,
+                image: product.image,
+                commerceName: product.commerceName,
+              });
+            }}
             className="w-7 h-7 bg-[#2E7D32] text-white rounded-lg flex items-center justify-center hover:bg-[#1B5E20] active:scale-90 transition-all"
           >
             <Plus className="w-4 h-4" />

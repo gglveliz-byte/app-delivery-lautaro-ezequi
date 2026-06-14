@@ -22,11 +22,11 @@ export default function AdminSettings() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [settings, setSettings] = useState({
-    deliveryFee: "2.50",
-    commissionRate: "8.00",
-    minOrderAmount: "3.00",
-    appName: "DeliveryCity",
-    supportPhone: "555-HELP",
+    deliveryFee: "500",
+    commissionRate: "15",
+    minOrderAmount: "2000",
+    appName: "YA LLEGA",
+    supportPhone: "+54 9 11 1234-5678",
   });
   const settingsList = useSettings();
   const updateSetting = useUpdateSetting();
@@ -39,7 +39,7 @@ export default function AdminSettings() {
       deliveryFee: map.delivery_fee || "2.50",
       commissionRate: map.commission_rate || "8.00",
       minOrderAmount: map.min_order_amount || "3.00",
-      appName: map.app_name || "DeliveryCity",
+      appName: map.app_name || "YA LLEGA",
       supportPhone: map.support_phone || "555-HELP",
     });
   }, [settingsList]);
@@ -74,7 +74,7 @@ export default function AdminSettings() {
       if (format === "pdf") {
         const doc = new jsPDF();
         doc.setFontSize(14);
-        doc.text(`DeliveryCity — Reporte de ${type}`, 14, 18);
+        doc.text(`YA LLEGA — Reporte de ${type}`, 14, 18);
         doc.setFontSize(10);
         const rangeText =
           dateFrom || dateTo

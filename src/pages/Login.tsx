@@ -70,7 +70,7 @@ export default function Login() {
           </button>
           <div className="flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-white" />
-            <span className="text-white font-semibold">DeliveryCity</span>
+            <span className="text-white font-semibold">YA LLEGA</span>
           </div>
           <div className="w-10" />
         </div>
@@ -110,7 +110,7 @@ export default function Login() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@quickgo.com"
+                      placeholder="admin@admin.com"
                       className="w-full h-12 pl-10 pr-4 border border-gray-200 rounded-xl focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none text-sm"
                     />
                   </div>

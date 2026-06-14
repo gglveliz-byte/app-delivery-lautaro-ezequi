@@ -136,9 +136,9 @@ export const commerceRouter = createRouter({
       return {
         totalProducts: prods.length,
         featuredProducts: prods.filter(p => p.isFeatured === "yes").length,
-        totalSales: totalSales.toFixed(2),
+        totalSales: Number(totalSales.toFixed(2)),
         totalOrders,
-        avgTicket: avgTicket.toFixed(2),
+        avgTicket: Number(avgTicket.toFixed(2)),
         topProducts,
         dailySales,
       };

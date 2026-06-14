@@ -21,7 +21,7 @@ async function getAddressFromCoords(lat: number, lng: number): Promise<string> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=es`,
-      { headers: { "User-Agent": "DeliveryCity-App/1.0" } }
+      { headers: { "User-Agent": "YALlega-App/1.0" } }
     );
     const data = await res.json();
     if (data?.display_name) return data.display_name;
@@ -224,64 +224,63 @@ export default function Cart() {
         <div className="px-4 mt-4">
           <div className="bg-white rounded-xl card-shadow p-4">
             <h3 className="text-sm font-medium text-gray-800 mb-3">Dirección de entrega</h3>
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-0 border border-gray-200 rounded-xl overflow-hidden">
               <button
                 onClick={() => setAddressMode("profile")}
-                className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                  addressMode === "profile" ? "border-[#2E7D32] bg-green-50" : "border-gray-200"
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-center text-[11px] font-medium transition-all ${
+                  addressMode === "profile"
+                    ? "bg-[#2E7D32] text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                } ${addressMode !== "profile" && "border-r border-gray-200"}`}
               >
-                <MapPin className={`w-5 h-5 mt-0.5 flex-shrink-0 ${addressMode === "profile" ? "text-[#2E7D32]" : "text-gray-400"}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${addressMode === "profile" ? "text-[#2E7D32]" : "text-gray-700"}`}>Mi dirección</p>
-                  <p className="text-xs text-gray-500 truncate">{customer.address}</p>
-                </div>
+                <MapPin className="w-4 h-4" />
+                Mi dirección
               </button>
-
               <button
                 onClick={() => setAddressMode("custom")}
-                className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                  addressMode === "custom" ? "border-[#2E7D32] bg-green-50" : "border-gray-200"
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-center text-[11px] font-medium transition-all ${
+                  addressMode === "custom"
+                    ? "bg-[#2E7D32] text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                } ${addressMode !== "custom" && "border-r border-gray-200"}`}
               >
-                <Pencil className={`w-5 h-5 mt-0.5 flex-shrink-0 ${addressMode === "custom" ? "text-[#2E7D32]" : "text-gray-400"}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${addressMode === "custom" ? "text-[#2E7D32]" : "text-gray-700"}`}>Otra dirección</p>
-                  {addressMode === "custom" ? (
-                    <input
-                      type="text"
-                      value={customAddress}
-                      onChange={(e) => setCustomAddress(e.target.value)}
-                      placeholder="Escribí la dirección"
-                      className="mt-1 w-full h-9 px-3 text-xs border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none"
-                      autoFocus
-                    />
-                  ) : (
-                    <p className="text-xs text-gray-500">Ingresá una dirección diferente</p>
-                  )}
-                </div>
+                <Pencil className="w-4 h-4" />
+                Otra dirección
               </button>
-
               <button
                 onClick={handleGetLocation}
                 disabled={geoLoading}
-                className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                  addressMode === "current" ? "border-[#2E7D32] bg-green-50" : "border-gray-200"
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-center text-[11px] font-medium transition-all ${
+                  addressMode === "current"
+                    ? "bg-[#2E7D32] text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <Navigation className={`w-5 h-5 mt-0.5 flex-shrink-0 ${addressMode === "current" ? "text-[#2E7D32]" : "text-gray-400"}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${addressMode === "current" ? "text-[#2E7D32]" : "text-gray-700"}`}>
-                    {geoLoading ? "Obteniendo ubicación..." : "Ubicación actual"}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {currentAddress || "Usá tu ubicación en tiempo real"}
-                  </p>
-                </div>
+                <Navigation className="w-4 h-4" />
+                {geoLoading ? "Obteniendo..." : "Ubicación actual"}
               </button>
             </div>
 
-            <div className="flex items-center gap-2 mt-3 text-sm text-gray-600">
+            <div className="mt-2.5 text-xs text-gray-600">
+              {addressMode === "profile" && (
+                <p className="truncate">{customer.address}</p>
+              )}
+              {addressMode === "custom" && (
+                <input
+                  type="text"
+                  value={customAddress}
+                  onChange={(e) => setCustomAddress(e.target.value)}
+                  placeholder="Escribí la dirección"
+                  className="w-full h-9 px-3 text-xs border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none"
+                  autoFocus
+                />
+              )}
+              {addressMode === "current" && (
+                <p className="truncate">{currentAddress || "Usá tu ubicación en tiempo real"}</p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-gray-100 text-sm text-gray-600">
               <Phone className="w-4 h-4 text-[#2E7D32] flex-shrink-0" />
               <span>{customer.phone}</span>
             </div>
