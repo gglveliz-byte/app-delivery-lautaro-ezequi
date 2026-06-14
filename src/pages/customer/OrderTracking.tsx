@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, MessageCircle, Phone, MapPin, Navigation } from "lucide-react";
+import { ArrowLeft, MessageCircle, Phone, MapPin, Navigation, Clock } from "lucide-react";
 import { useOrder } from "@/hooks/useDeliveryData";
-import { useCustomerSession } from "@/hooks/useCustomerSession";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -40,13 +39,13 @@ const driverIcon = L.divIcon({
 function commerceLogoIcon(logoUrl: string, name: string): L.DivIcon {
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:44px;height:44px;">
-      <div style="width:44px;height:44px;border-radius:12px;border:3px solid white;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,0.25);background:white;display:flex;align-items:center;justify-content:center;">
+    html: `<div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="width:44px;height:44px;border-radius:12px;border:3px solid white;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.2);background:white;">
         <img src="${logoUrl}" alt="${name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'"/>
       </div>
-      <div style="position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);background:#1565C0;color:white;font-size:8px;font-weight:700;padding:1px 6px;border-radius:6px;white-space:nowrap;border:1.5px solid white;">${name}</div>
+      <div style="margin-top:-2px;background:#1565C0;color:white;font-size:7.5px;font-weight:700;padding:2px 7px;border-radius:0 0 7px 7px;border:1.5px solid white;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;">${name}</div>
     </div>`,
-    iconSize: [44, 44],
+    iconSize: [44, 60],
     iconAnchor: [22, 44],
   });
 }
