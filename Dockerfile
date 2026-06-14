@@ -1,0 +1,30 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+RUN npm run build
+
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 app
+
+COPY --from=builder --chown=app:nodejs /app/dist ./dist
+COPY --from=builder --chown=app:nodejs /app/package.json /app/package-lock.json ./
+
+RUN npm ci --omit=dev && npm cache clean --force
+
+USER app
+
+EXPOSE 3000
+
+ENV NODE_ENV=production
+
+CMD ["node", "dist/boot.js"]

@@ -1,0 +1,472 @@
+import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import superjson from "superjson";
+import { useState, useEffect } from "react";
+
+const API_URL = "/api/trpc";
+
+export async function trpcCall<T>(path: string, input?: Record<string, unknown>): Promise<T> {
+  const serialized = input ? superjson.serialize(input) : superjson.serialize({});
+  const url = `${API_URL}/${path}?input=${encodeURIComponent(JSON.stringify(serialized))}`;
+  const res = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+  const data = await res.json();
+  return superjson.deserialize(data.result?.data);
+}
+
+export async function trpcMutate<T>(path: string, input: Record<string, unknown>): Promise<T> {
+  const serialized = superjson.serialize(input);
+  const res = await fetch(`${API_URL}/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(serialized),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+  const data = await res.json();
+  return superjson.deserialize(data.result?.data);
+}
+
+// ========== CATEGORIES ==========
+export function useCategories() {
+  const query = useQuery({
+    queryKey: ["category.list"],
+    queryFn: () => trpcCall<Array<{ id: number; name: string; icon: string; color: string }>>("category.list"),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+// ========== COMMERCES ==========
+export function useCommerces() {
+  const query = useQuery({
+    queryKey: ["commerce.list"],
+    queryFn: () => trpcCall<any[]>("commerce.list"),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function useCommerce(id: number) {
+  const query = useQuery({
+    queryKey: ["commerce.getById", id],
+    queryFn: () => trpcCall<any>("commerce.getById", { id }),
+    enabled: Boolean(id),
+  });
+  return { data: query.data ?? null, loading: query.isLoading };
+}
+
+export function useMerchantCommerceId() {
+  const storedUser = sessionStorage.getItem("merchant_user");
+  const merchantUser = storedUser ? JSON.parse(storedUser) : null;
+  const [commerceId, setCommerceId] = useState<number | null>(merchantUser?.commerceId || null);
+
+  const query = useQuery({
+    queryKey: ["commerce.search", merchantUser?.name],
+    queryFn: () => trpcCall<any[]>("commerce.search", { query: merchantUser?.name || "" }),
+    enabled: !commerceId && Boolean(merchantUser?.name),
+  });
+
+  useEffect(() => {
+    const results = query.data ?? [];
+    if (results.length > 0 && !commerceId) {
+      const id = results[0].id;
+      setCommerceId(id);
+      if (merchantUser) {
+        merchantUser.commerceId = id;
+        sessionStorage.setItem("merchant_user", JSON.stringify(merchantUser));
+      }
+    }
+  }, [query.data, commerceId, merchantUser]);
+
+  return { commerceId, loading: query.isLoading };
+}
+
+// ========== PRODUCTS ==========
+export function useFeaturedProducts() {
+  const query = useQuery({
+    queryKey: ["product.getFeatured"],
+    queryFn: () => trpcCall<any[]>("product.getFeatured"),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function useProductsByCommerce(commerceId: number) {
+  const query = useQuery({
+    queryKey: ["product.getByCommerce", commerceId],
+    queryFn: () => trpcCall<any[]>("product.getByCommerce", { commerceId }),
+    enabled: Boolean(commerceId),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function useCreateProduct(commerceId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("product.create", { commerceId, ...input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product.getByCommerce", commerceId] });
+      queryClient.invalidateQueries({ queryKey: ["product.getFeatured"] });
+    },
+  });
+}
+
+export function useUpdateProduct(commerceId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("product.update", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product.getByCommerce", commerceId] });
+      queryClient.invalidateQueries({ queryKey: ["product.getFeatured"] });
+    },
+  });
+}
+
+export function useDeleteProduct(commerceId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("product.delete", input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["product.getByCommerce", commerceId] }),
+  });
+}
+
+// ========== ORDERS ==========
+export function useOrder(id: number) {
+  const query = useQuery({
+    queryKey: ["order.getById", id],
+    queryFn: () => trpcCall<any>("order.getById", { id }),
+    enabled: Boolean(id),
+    refetchInterval: 10000,
+  });
+  return { data: query.data ?? null, loading: query.isLoading, refresh: query.refetch };
+}
+
+export function useCustomerOrders(customerId: number) {
+  const query = useQuery({
+    queryKey: ["order.getByCustomer", customerId],
+    queryFn: () => trpcCall<any[]>("order.getByCustomer", { customerId }),
+    enabled: Boolean(customerId),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function useCommerceOrders(commerceId: number) {
+  const query = useQuery({
+    queryKey: ["order.getCommerceOrders", commerceId],
+    queryFn: () => trpcCall<any[]>("order.getCommerceOrders", { commerceId }),
+    enabled: Boolean(commerceId),
+    refetchInterval: 10000,
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function useCreateOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("order.create", input),
+    onSuccess: (result: any) => {
+      if (result?.order?.customerId) {
+        queryClient.invalidateQueries({ queryKey: ["order.getByCustomer", result.order.customerId] });
+      }
+      if (result?.order?.id) {
+        queryClient.invalidateQueries({ queryKey: ["order.getById", result.order.id] });
+      }
+    },
+  });
+}
+
+export function useUpdateOrderStatus(commerceId?: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("order.updateStatus", input),
+    onSuccess: (result: any) => {
+      if (commerceId) queryClient.invalidateQueries({ queryKey: ["order.getCommerceOrders", commerceId] });
+      if (result?.id) queryClient.invalidateQueries({ queryKey: ["order.getById", result.id] });
+    },
+  });
+}
+
+// ========== CHAT ==========
+export function useChatMessages(orderId: number) {
+  const query = useQuery({
+    queryKey: ["chat.getByOrder", orderId],
+    queryFn: () => trpcCall<any[]>("chat.getByOrder", { orderId }),
+    enabled: Boolean(orderId),
+    refetchInterval: 5000,
+  });
+  return { data: query.data ?? [], loading: query.isLoading, refresh: query.refetch };
+}
+
+export function useSendChatMessage(orderId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("chat.send", input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["chat.getByOrder", orderId] }),
+  });
+}
+
+// ========== CUSTOMER ==========
+export function registerCustomer(input: any): Promise<any> {
+  return trpcMutate<any>("customer.register", input);
+}
+
+export function useUpdateCustomerProfile() {
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("customer.update", input),
+  });
+}
+
+// ========== ADMIN ==========
+export function useAdminDashboard() {
+  const query = useQuery({
+    queryKey: ["admin.dashboard"],
+    queryFn: () => trpcCall<any>("admin.dashboard"),
+  });
+  return { data: query.data ?? null, loading: query.isLoading };
+}
+
+export function useAdminSales(period: string) {
+  const query = useQuery({
+    queryKey: ["admin.salesByPeriod", period],
+    queryFn: () => trpcCall<any[]>("admin.salesByPeriod", { period }),
+  });
+  return query.data ?? [];
+}
+
+export function useAdminTopCommerces(limit = 10) {
+  const query = useQuery({
+    queryKey: ["admin.topCommerces", limit],
+    queryFn: () => trpcCall<any[]>("admin.topCommerces", { limit }),
+  });
+  return query.data ?? [];
+}
+
+export function useAdminTopProducts(limit = 10) {
+  const query = useQuery({
+    queryKey: ["admin.topProducts", limit],
+    queryFn: () => trpcCall<any[]>("admin.topProducts", { limit }),
+  });
+  return query.data ?? [];
+}
+
+export function useAdminCategoryRanking() {
+  const query = useQuery({
+    queryKey: ["admin.categoryRanking"],
+    queryFn: () => trpcCall<any[]>("admin.categoryRanking"),
+  });
+  return query.data ?? [];
+}
+
+export function useAllCommerces() {
+  const query = useQuery({
+    queryKey: ["admin.listCommerces"],
+    queryFn: () => trpcCall<any[]>("admin.listCommerces"),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function createDriver(input: any): Promise<any> {
+  return trpcMutate<any>("admin.createDriver", input);
+}
+
+export function updateDriver(input: any): Promise<any> {
+  return trpcMutate<any>("admin.updateDriver", input);
+}
+
+export function createMerchant(input: any): Promise<any> {
+  return trpcMutate<any>("admin.createMerchant", input);
+}
+
+export function updateCommerce(input: any): Promise<any> {
+  return trpcMutate<any>("admin.updateCommerce", input);
+}
+
+// ========== DRIVERS ==========
+export function useDrivers() {
+  const query = useQuery({
+    queryKey: ["driver.list"],
+    queryFn: () => trpcCall<any[]>("driver.list"),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+// ========== SETTINGS ==========
+export function useSettings() {
+  const query = useQuery({
+    queryKey: ["admin.settings"],
+    queryFn: () => trpcCall<any[]>("admin.settings"),
+  });
+  return query.data ?? [];
+}
+
+export function useUpdateSetting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("admin.updateSetting", input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin.settings"] }),
+  });
+}
+
+export function useGetAdminReports() {
+  return useMutation({
+    mutationFn: (input: any) => trpcCall<any>("admin.getReports", input),
+  });
+}
+
+export function usePublicSettings() {
+  const query = useQuery({
+    queryKey: ["settings.getPublic"],
+    queryFn: () => trpcCall<Record<string, string>>("settings.getPublic"),
+  });
+  return query.data ?? {};
+}
+
+export function useCommerceStats(commerceId: number) {
+  const query = useQuery({
+    queryKey: ["commerce.getStats", commerceId],
+    queryFn: () => trpcCall<any>("commerce.getStats", { id: commerceId }),
+    enabled: Boolean(commerceId),
+  });
+  return { data: query.data ?? null, loading: query.isLoading };
+}
+
+export function useUpdateCommerceProfile(commerceId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("commerce.update", { id: commerceId, ...input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commerce.getById", commerceId] });
+      queryClient.invalidateQueries({ queryKey: ["commerce.getStats", commerceId] });
+    },
+  });
+}
+
+export function useToggleCommerceStatus(commerceId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => trpcMutate<any>("commerce.toggleStatus", { id: commerceId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commerce.getById", commerceId] });
+      queryClient.invalidateQueries({ queryKey: ["commerce.getStats", commerceId] });
+    },
+  });
+}
+
+// ========== ADMIN ORDERS ==========
+export function useAdminOrders() {
+  const query = useQuery({
+    queryKey: ["admin.orders"],
+    queryFn: () => trpcCall<any[]>("admin.orders"),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function useAdminOrderDetail(orderId: number) {
+  const query = useQuery({
+    queryKey: ["admin.orderDetail", orderId],
+    queryFn: () => trpcCall<any>("admin.orderDetail", { id: orderId }),
+    enabled: Boolean(orderId),
+  });
+  return { data: query.data ?? null, loading: query.isLoading };
+}
+
+export function useAdminUpdateOrderStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("admin.updateOrderStatus", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin.orders"] });
+    },
+  });
+}
+
+export function useAdminAssignDriver() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => trpcMutate<any>("admin.assignDriver", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin.orders"] });
+    },
+  });
+}
+
+// ========== DRIVER ==========
+export function useDriverSession() {
+  const [driverUser, setDriverUser] = useState<any>(null);
+  useEffect(() => {
+    const session = sessionStorage.getItem("driver_user") || localStorage.getItem("qs_driver_user");
+    if (session) {
+      try { setDriverUser(JSON.parse(session)); } catch { /* empty */ }
+    }
+  }, []);
+  return driverUser;
+}
+
+export function useDriverOrders(driverId: number) {
+  const query = useQuery({
+    queryKey: ["driver.getActiveOrders", driverId],
+    queryFn: () => trpcCall<any[]>("driver.getActiveOrders", { id: driverId }),
+    enabled: Boolean(driverId),
+    refetchInterval: 10000,
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function useDriverAcceptOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { driverId: number; orderId: number }) => trpcMutate<any>("driver.acceptOrder", input),
+    onSuccess: (_: any, input: any) => {
+      queryClient.invalidateQueries({ queryKey: ["driver.getActiveOrders", input.driverId] });
+    },
+  });
+}
+
+export function useDriverUpdateStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: number; status: string; notes?: string }) => trpcMutate<any>("order.updateStatus", input),
+    onSuccess: (_: any, input: any) => {
+      queryClient.invalidateQueries({ queryKey: ["order.getById", input.id] });
+    },
+  });
+}
+
+export function useDriverUpdateLocation() {
+  return useMutation({
+    mutationFn: (input: { id: number; lat: string; lng: string }) => trpcMutate<any>("driver.updateLocation", input),
+  });
+}
+
+export function useDriverEarnings(driverId: number) {
+  const query = useQuery({
+    queryKey: ["driver.getEarnings", driverId],
+    queryFn: () => trpcCall<any[]>("driver.getEarnings", { id: driverId }),
+    enabled: Boolean(driverId),
+  });
+  return { data: query.data ?? [], loading: query.isLoading };
+}
+
+export function useDriverProfile(driverId: number) {
+  const query = useQuery({
+    queryKey: ["driver.getProfile", driverId],
+    queryFn: () => trpcCall<any>("driver.getProfile", { id: driverId }),
+    enabled: Boolean(driverId),
+  });
+  return { data: query.data ?? null, loading: query.isLoading };
+}
+
+export function useCheckAuth() {
+  const query = useQuery({
+    queryKey: ["customer.checkAuth"],
+    queryFn: () => trpcCall<any>("customer.checkAuth"),
+    retry: false,
+  });
+  return { data: query.data ?? null, loading: query.isLoading };
+}

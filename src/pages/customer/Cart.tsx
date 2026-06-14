@@ -1,0 +1,363 @@
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import {
+  ArrowLeft,
+  Minus,
+  Plus,
+  Trash2,
+  MapPin,
+  Phone,
+  CreditCard,
+  Banknote,
+  Package,
+  Navigation,
+  Pencil,
+} from "lucide-react";
+import { useCart } from "@/hooks/useCart";
+import { useCustomerSession } from "@/hooks/useCustomerSession";
+import { useCreateOrder, usePublicSettings } from "@/hooks/useDeliveryData";
+
+async function getAddressFromCoords(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=es`,
+      { headers: { "User-Agent": "DeliveryCity-App/1.0" } }
+    );
+    const data = await res.json();
+    if (data?.display_name) return data.display_name;
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  } catch {
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
+}
+
+export default function Cart() {
+  const navigate = useNavigate();
+  const { items, subtotal, totalItems, updateQuantity, removeItem, clearCart, getItemsByCommerce } =
+    useCart();
+  const { customer, isAuthenticated } = useCustomerSession();
+  const createOrderMutation = useCreateOrder();
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash");
+  const [loading, setLoading] = useState(false);
+  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [orderId, setOrderId] = useState<number | null>(null);
+  const [addressMode, setAddressMode] = useState<"profile" | "custom" | "current">("profile");
+  const [customAddress, setCustomAddress] = useState("");
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [currentAddress, setCurrentAddress] = useState("");
+
+  const settings = usePublicSettings();
+
+  const deliveryFee = parseFloat(settings.delivery_fee || "2.50");
+  const commissionRate = parseFloat(settings.commission_rate || "8.00");
+  const commission = ((subtotal * commissionRate) / 100).toFixed(2);
+  const total = (subtotal + deliveryFee + parseFloat(commission)).toFixed(2);
+
+  const grouped = getItemsByCommerce();
+
+  const getDeliveryAddress = () => {
+    if (addressMode === "custom") return customAddress;
+    if (addressMode === "current") return currentAddress;
+    return customer?.address || "";
+  };
+
+  const handleGetLocation = async () => {
+    if (!navigator.geolocation) return;
+    setGeoLoading(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
+      );
+      const addr = await getAddressFromCoords(pos.coords.latitude, pos.coords.longitude);
+      setCurrentAddress(addr);
+      setAddressMode("current");
+    } catch {} finally {
+      setGeoLoading(false);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!isAuthenticated || !customer) {
+      navigate("/register");
+      return;
+    }
+    if (items.length === 0) return;
+
+    const deliveryAddress = getDeliveryAddress();
+    if (!deliveryAddress.trim()) return;
+
+    setLoading(true);
+    try {
+      const result: any = await createOrderMutation.mutateAsync({
+        customerId: customer.id,
+        items: items.map((i) => ({
+          productId: i.productId,
+          commerceId: i.commerceId,
+          quantity: i.quantity,
+        })),
+        deliveryAddress,
+        customerPhone: customer.phone,
+        paymentMethod,
+        deliveryFee: deliveryFee.toFixed(2),
+        commission,
+      });
+      if (result.success) {
+        setOrderId(result.order.id);
+        setOrderPlaced(true);
+        clearCart();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (orderPlaced && orderId) {
+    return (
+      <div className="mobile-container bg-gray-50 min-h-screen flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
+          <Package className="w-10 h-10 text-[#2E7D32]" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Pedido confirmado!</h1>
+        <p className="text-gray-500 text-sm mb-6">
+          Tu pedido #{orderId} ha sido recibido y esta siendo preparado.
+        </p>
+        <div className="w-full space-y-3">
+          <button
+            onClick={() => navigate(`/order/${orderId}`)}
+            className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] transition-all"
+          >
+            Seguir pedido
+          </button>
+          <button
+            onClick={() => navigate("/home")}
+            className="w-full h-12 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all"
+          >
+            Volver al inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="mobile-container bg-gray-50 min-h-screen flex flex-col items-center justify-center px-6 text-center">
+        <ShoppingCartEmpty />
+        <h2 className="text-lg font-semibold text-gray-800 mt-4 mb-2">Tu carrito esta vacio</h2>
+        <p className="text-gray-500 text-sm mb-6">Agrega productos de tus comercios favoritos</p>
+        <button
+          onClick={() => navigate("/home")}
+          className="h-12 px-8 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] transition-all"
+        >
+          Explorar comercios
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mobile-container bg-gray-50 min-h-screen pb-32">
+      {/* Header */}
+      <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-gray-100 sticky top-0 z-10">
+        <button onClick={() => navigate("/home")} className="touch-target">
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <h1 className="text-lg font-semibold text-gray-800">Carrito ({totalItems})</h1>
+      </div>
+
+      {/* Multi-commerce cart items grouped by commerce */}
+      <div className="px-4 mt-4 space-y-4">
+        {Object.entries(grouped).map(([commerceId, group]) => (
+          <div key={commerceId} className="bg-white rounded-xl card-shadow overflow-hidden">
+            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+              <h3 className="text-sm font-medium text-gray-700">{group.commerceName}</h3>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {group.items.map((item) => (
+                <div key={item.productId} className="p-3 flex gap-3">
+                  <div
+                    className="w-14 h-14 rounded-lg bg-gray-100 bg-cover bg-center flex-shrink-0"
+                    style={{ backgroundImage: `url(${item.image})` }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <h4 className="text-sm font-medium text-gray-800 truncate pr-2">{item.name}</h4>
+                      <button
+                        onClick={() => removeItem(item.productId)}
+                        className="text-gray-400 hover:text-red-500 transition-colors touch-target"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-sm font-bold text-[#2E7D32]">
+                        ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                          className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-sm font-medium w-5 text-center">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                          className="w-7 h-7 bg-[#2E7D32] rounded-lg flex items-center justify-center text-white hover:bg-[#1B5E20]"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Delivery Address */}
+      {customer && (
+        <div className="px-4 mt-4">
+          <div className="bg-white rounded-xl card-shadow p-4">
+            <h3 className="text-sm font-medium text-gray-800 mb-3">Dirección de entrega</h3>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setAddressMode("profile")}
+                className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                  addressMode === "profile" ? "border-[#2E7D32] bg-green-50" : "border-gray-200"
+                }`}
+              >
+                <MapPin className={`w-5 h-5 mt-0.5 flex-shrink-0 ${addressMode === "profile" ? "text-[#2E7D32]" : "text-gray-400"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${addressMode === "profile" ? "text-[#2E7D32]" : "text-gray-700"}`}>Mi dirección</p>
+                  <p className="text-xs text-gray-500 truncate">{customer.address}</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setAddressMode("custom")}
+                className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                  addressMode === "custom" ? "border-[#2E7D32] bg-green-50" : "border-gray-200"
+                }`}
+              >
+                <Pencil className={`w-5 h-5 mt-0.5 flex-shrink-0 ${addressMode === "custom" ? "text-[#2E7D32]" : "text-gray-400"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${addressMode === "custom" ? "text-[#2E7D32]" : "text-gray-700"}`}>Otra dirección</p>
+                  {addressMode === "custom" ? (
+                    <input
+                      type="text"
+                      value={customAddress}
+                      onChange={(e) => setCustomAddress(e.target.value)}
+                      placeholder="Escribí la dirección"
+                      className="mt-1 w-full h-9 px-3 text-xs border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-500">Ingresá una dirección diferente</p>
+                  )}
+                </div>
+              </button>
+
+              <button
+                onClick={handleGetLocation}
+                disabled={geoLoading}
+                className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                  addressMode === "current" ? "border-[#2E7D32] bg-green-50" : "border-gray-200"
+                }`}
+              >
+                <Navigation className={`w-5 h-5 mt-0.5 flex-shrink-0 ${addressMode === "current" ? "text-[#2E7D32]" : "text-gray-400"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${addressMode === "current" ? "text-[#2E7D32]" : "text-gray-700"}`}>
+                    {geoLoading ? "Obteniendo ubicación..." : "Ubicación actual"}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {currentAddress || "Usá tu ubicación en tiempo real"}
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 mt-3 text-sm text-gray-600">
+              <Phone className="w-4 h-4 text-[#2E7D32] flex-shrink-0" />
+              <span>{customer.phone}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Method */}
+      <div className="px-4 mt-4">
+        <div className="bg-white rounded-xl card-shadow p-4">
+          <h3 className="text-sm font-medium text-gray-800 mb-3">Metodo de pago</h3>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setPaymentMethod("cash")}
+              className={`flex-1 h-12 flex items-center justify-center gap-2 rounded-xl border-2 text-sm font-medium transition-all ${
+                paymentMethod === "cash"
+                  ? "border-[#2E7D32] bg-green-50 text-[#2E7D32]"
+                  : "border-gray-200 text-gray-600"
+              }`}
+            >
+              <Banknote className="w-4 h-4" />
+              Efectivo
+            </button>
+            <button
+              onClick={() => setPaymentMethod("transfer")}
+              className={`flex-1 h-12 flex items-center justify-center gap-2 rounded-xl border-2 text-sm font-medium transition-all ${
+                paymentMethod === "transfer"
+                  ? "border-[#2E7D32] bg-green-50 text-[#2E7D32]"
+                  : "border-gray-200 text-gray-600"
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              Transferencia
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Order Summary - Fixed Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-50" style={{ maxWidth: "480px", margin: "0 auto" }}>
+        <div className="space-y-1.5 mb-3">
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>Subtotal</span>
+            <span>${subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>Envio</span>
+            <span>${deliveryFee.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>Comision</span>
+            <span>${commission}</span>
+          </div>
+          <div className="flex justify-between text-base font-bold text-gray-800 pt-1 border-t border-gray-100">
+            <span>Total</span>
+            <span className="text-[#2E7D32]">${total}</span>
+          </div>
+        </div>
+        <button
+          onClick={handleCheckout}
+          disabled={loading}
+          className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] active:scale-[0.98] transition-all disabled:opacity-50 touch-target"
+        >
+          {loading ? "Procesando..." : "Confirmar pedido"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ShoppingCartEmpty() {
+  return (
+    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="21" r="1" />
+      <circle cx="20" cy="21" r="1" />
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+    </svg>
+  );
+}

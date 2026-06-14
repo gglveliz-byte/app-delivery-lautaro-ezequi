@@ -1,0 +1,284 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
+import {
+  ArrowLeft,
+  Settings,
+  DollarSign,
+  Save,
+  CheckCircle,
+  Download,
+  FileSpreadsheet,
+  FileText,
+} from "lucide-react";
+import { useGetAdminReports, useSettings, useUpdateSetting } from "@/hooks/useDeliveryData";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+
+export default function AdminSettings() {
+  const navigate = useNavigate();
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [settings, setSettings] = useState({
+    deliveryFee: "2.50",
+    commissionRate: "8.00",
+    minOrderAmount: "3.00",
+    appName: "DeliveryCity",
+    supportPhone: "555-HELP",
+  });
+  const settingsList = useSettings();
+  const updateSetting = useUpdateSetting();
+  const getReports = useGetAdminReports();
+
+  useEffect(() => {
+    const map: Record<string, string> = {};
+    settingsList.forEach((row: any) => { map[row.key] = row.value ?? ""; });
+    setSettings({
+      deliveryFee: map.delivery_fee || "2.50",
+      commissionRate: map.commission_rate || "8.00",
+      minOrderAmount: map.min_order_amount || "3.00",
+      appName: map.app_name || "DeliveryCity",
+      supportPhone: map.support_phone || "555-HELP",
+    });
+  }, [settingsList]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        updateSetting.mutateAsync({ key: "app_name", value: settings.appName }),
+        updateSetting.mutateAsync({ key: "support_phone", value: settings.supportPhone }),
+        updateSetting.mutateAsync({ key: "delivery_fee", value: settings.deliveryFee }),
+        updateSetting.mutateAsync({ key: "commission_rate", value: settings.commissionRate }),
+        updateSetting.mutateAsync({ key: "min_order_amount", value: settings.minOrderAmount }),
+      ]);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExport = async (type: string, format: "pdf" | "excel") => {
+    try {
+      const payload: { type: string; startDate?: string; endDate?: string } = { type };
+      if (dateFrom) payload.startDate = dateFrom;
+      if (dateTo) payload.endDate = dateTo;
+      const data = await getReports.mutateAsync(payload);
+      const today = new Date().toISOString().split("T")[0];
+
+      if (format === "pdf") {
+        const doc = new jsPDF();
+        doc.setFontSize(14);
+        doc.text(`DeliveryCity — Reporte de ${type}`, 14, 18);
+        doc.setFontSize(10);
+        const rangeText =
+          dateFrom || dateTo
+            ? `Rango: ${dateFrom || "—"} a ${dateTo || "—"}`
+            : "Rango: todos los datos";
+        doc.text(rangeText, 14, 26);
+
+        const rows: Record<string, unknown>[] = Array.isArray(data) ? data : [];
+        const headers =
+          rows.length > 0
+            ? Object.keys(rows[0])
+            : ["Sin datos"];
+        const body = rows.map((row) =>
+          headers.map((h) => {
+            const val = (row as Record<string, unknown>)[h];
+            return val === null || val === undefined ? "" : String(val);
+          }),
+        );
+
+        autoTable(doc, {
+          head: [headers],
+          body,
+          startY: 32,
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [46, 125, 50] },
+        });
+
+        const pageCount = doc.getNumberOfPages();
+        const timestamp = new Date().toLocaleString();
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(8);
+          doc.text(
+            `Generado: ${timestamp}  |  Pagina ${i} de ${pageCount}`,
+            14,
+            doc.internal.pageSize.height - 8,
+          );
+        }
+
+        doc.save(`reporte_${type}_${today}.pdf`);
+      } else {
+        const rows: Record<string, unknown>[] = Array.isArray(data) ? data : [];
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, type);
+        XLSX.writeFile(wb, `reporte_${type}_${today}.xlsx`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b border-gray-200 px-4 py-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate("/admin")} className="touch-target">
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <h1 className="text-lg font-bold text-gray-800">Configuracion</h1>
+        </div>
+      </header>
+
+      <div className="p-4 max-w-2xl mx-auto space-y-6">
+        {saved && (
+          <div className="bg-green-50 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm animate-fade-in">
+            <CheckCircle className="w-4 h-4" />
+            Configuracion guardada exitosamente
+          </div>
+        )}
+
+        {/* App Settings */}
+        <div className="bg-white rounded-xl card-shadow p-5">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <Settings className="w-4 h-4 text-[#2E7D32]" />
+            General
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre de la app</label>
+              <input
+                type="text"
+                value={settings.appName}
+                onChange={(e) => setSettings({ ...settings, appName: e.target.value })}
+                className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Telefono de soporte</label>
+              <input
+                type="text"
+                value={settings.supportPhone}
+                onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value })}
+                className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Financial Settings */}
+        <div className="bg-white rounded-xl card-shadow p-5">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-[#2E7D32]" />
+            Financiero
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Costo de envio base ($)</label>
+              <input
+                type="text"
+                value={settings.deliveryFee}
+                onChange={(e) => setSettings({ ...settings, deliveryFee: e.target.value })}
+                className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Comision global (%)</label>
+              <input
+                type="text"
+                value={settings.commissionRate}
+                onChange={(e) => setSettings({ ...settings, commissionRate: e.target.value })}
+                className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Monto minimo de pedido ($)</label>
+              <input
+                type="text"
+                value={settings.minOrderAmount}
+                onChange={(e) => setSettings({ ...settings, minOrderAmount: e.target.value })}
+                className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4" />
+          {saving ? "Guardando..." : "Guardar configuracion"}
+        </button>
+
+        {/* Reports Export */}
+        <div className="bg-white rounded-xl card-shadow p-5">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <Download className="w-4 h-4 text-[#2E7D32]" />
+            Reportes exportables
+          </h2>
+
+          {/* Date range inputs */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Desde</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Hasta</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              { label: "Ventas", type: "sales" },
+              { label: "Pedidos", type: "orders" },
+              { label: "Comercios", type: "commerces" },
+              { label: "Repartidores", type: "drivers" },
+              { label: "Ganancias", type: "earnings" },
+              { label: "Comisiones", type: "commissions" },
+            ].map((report) => (
+              <div key={report.type} className="flex items-center gap-2">
+                <span className="text-sm text-gray-700 w-28 shrink-0">{report.label}</span>
+                <button
+                  onClick={() => handleExport(report.type, "pdf")}
+                  className="flex-1 p-2 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 hover:border-[#2E7D32] transition-all flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4 text-[#2E7D32]" />
+                  PDF
+                </button>
+                <button
+                  onClick={() => handleExport(report.type, "excel")}
+                  className="flex-1 p-2 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 hover:border-[#2E7D32] transition-all flex items-center justify-center gap-2"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-[#2E7D32]" />
+                  Excel
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

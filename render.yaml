@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: quickgo
+    runtime: image
+    repo: https://github.com/tu-usuario/tu-repo
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_ID
+        value: quickgo-app
+      - key: APP_SECRET
+        value: quickgo_dev_secret_2024_para_desarrollo
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OWNER_UNION_ID
+        value: admin-prod
+      - key: ADMIN_EMAIL
+        value: admin@quickgo.com
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        value: Admin
+      - key: PORT
+        value: "3000"
