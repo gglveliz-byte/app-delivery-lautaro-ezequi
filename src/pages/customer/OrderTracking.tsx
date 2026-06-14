@@ -41,7 +41,7 @@ function commerceLogoIcon(logoUrl: string, name: string): L.DivIcon {
     className: "",
     html: `<div style="display:flex;flex-direction:column;align-items:center;">
       <div style="width:44px;height:44px;border-radius:12px;border:3px solid white;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.2);background:white;">
-        <img src="${logoUrl}" alt="${name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'"/>
+        <img src="${logoUrl}" alt="${name}" style="width:100%;height:100%;object-fit:cover;"/>
       </div>
       <div style="margin-top:-2px;background:#1565C0;color:white;font-size:7.5px;font-weight:700;padding:2px 7px;border-radius:0 0 7px 7px;border:1.5px solid white;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;">${name}</div>
     </div>`,
