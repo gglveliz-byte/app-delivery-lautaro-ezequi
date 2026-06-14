@@ -69,7 +69,20 @@ export const loginRouter = createRouter({
 
       if (input.phone) {
         const normalizedPhone = input.phone.replace(/\D/g, "");
-        const driverResult = await db.select().from(drivers).where(eq(drivers.phone, normalizedPhone));
+        let driverResult = await db.select().from(drivers).where(eq(drivers.phone, normalizedPhone));
+
+        // Fallback: buscar sin código de país (para drivers creados con input de texto plano)
+        if (driverResult.length === 0 && normalizedPhone.length > 7) {
+          const countryCodes = ["54", "591", "56", "57", "506", "53", "1809", "593", "503", "502", "504", "52", "505", "507", "595", "51", "1787", "598", "58", "34", "1", "44", "33", "39", "55"];
+          for (const cc of countryCodes) {
+            if (normalizedPhone.startsWith(cc)) {
+              const withoutCC = normalizedPhone.slice(cc.length);
+              driverResult = await db.select().from(drivers).where(eq(drivers.phone, withoutCC));
+              if (driverResult.length > 0) break;
+            }
+          }
+        }
+
         const driver = driverResult[0];
         if (driver && driver.passwordHash) {
           const valid = await bcrypt.compare(input.password, driver.passwordHash);

@@ -41,7 +41,7 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await fetch("/api/trpc/customer.logout", { 
+    await fetch("/api/trpc/customer.logout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include"
@@ -51,7 +51,7 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
 
   const refreshToken = useCallback(async () => {
     try {
-      const res = await fetch("/api/trpc/customer.refresh", { 
+      const res = await fetch("/api/trpc/customer.refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include"
@@ -65,6 +65,15 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
     } catch {}
     return false;
   }, []);
+
+  // Refresh automático cada 10 minutos (antes de que expire el access token de 15 min)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshToken().catch(() => {});
+    }, 10 * 60 * 1000); // 10 minutos
+
+    return () => clearInterval(interval);
+  }, [refreshToken]);
 
   return (
     <CustomerSessionContext.Provider value={{ customer, login, logout, isAuthenticated: !!customer, refreshToken }}>

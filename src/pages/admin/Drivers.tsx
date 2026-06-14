@@ -4,6 +4,7 @@ import {
   ArrowLeft, Star, Search, Bike, X, Plus,
 } from "lucide-react";
 import { trpcCall, trpcMutate } from "@/hooks/useDeliveryData";
+import PhoneInput from "@/components/PhoneInput";
 
 export default function AdminDrivers() {
   const navigate = useNavigate();
@@ -223,7 +224,7 @@ export default function AdminDrivers() {
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <input placeholder="Nombre" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
-              <input placeholder="Telefono" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
+              <PhoneInput value={form.phone} onChange={(v) => setForm({...form, phone: v})} />
               <input type="password" placeholder={editing ? "Nueva contraseña (dejar vacio = sin cambios)" : "Contraseña"} value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required={!editing} />
               <input placeholder="Vehiculo (ej: Moto Honda CB190)" value={form.vehicle} onChange={(e) => setForm({...form, vehicle: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
               <input placeholder="Patente (ej: ABC-123)" value={form.licensePlate} onChange={(e) => setForm({...form, licensePlate: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />

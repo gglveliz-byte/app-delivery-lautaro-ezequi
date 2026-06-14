@@ -44,21 +44,23 @@ export default function DriverHome() {
     },
   });
 
+  const updateLocationMutation = trpc.driver.updateLocation.useMutation();
+
   useEffect(() => {
     if (!driverId) return;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        trpc.driver.updateLocation.mutate({
+        updateLocationMutation.mutate({
           id: driverId,
           lat: String(pos.coords.latitude),
           lng: String(pos.coords.longitude),
-        }).catch(() => {});
+        });
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [driverId]);
+  }, [driverId, updateLocationMutation]);
 
   const todayEarnings = earnings?.reduce((acc: number, e: any) => {
     const today = new Date().toISOString().split("T")[0];
@@ -77,11 +79,13 @@ export default function DriverHome() {
     }
   };
 
+  const updateStatusMutation = trpc.driver.updateStatus.useMutation();
+
   const handleToggleOnline = async () => {
     if (!driverId || !driverProfile) return;
     const newStatus = isOnline ? "offline" : "online";
     setIsOnline(!isOnline);
-    await trpc.driver.updateStatus.useMutation().mutateAsync({ id: driverId, status: newStatus as any });
+    await updateStatusMutation.mutateAsync({ id: driverId, status: newStatus as any });
   };
 
   const totalDeliveries = earnings?.length || 0;

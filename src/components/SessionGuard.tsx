@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { useNavigate } from "react-router"
 import { getSession, useSessionSync } from "@/hooks/useSessionSync"
 import { useCustomerSession } from "@/hooks/useCustomerSession"
@@ -12,17 +12,21 @@ export default function SessionGuard({ role, children }: { role: GuardRole; chil
   const [checking, setChecking] = useState(true)
   const redirected = useRef(false)
 
-  function redirectOut() {
+  const redirectOut = useCallback(() => {
     if (redirected.current) return
     redirected.current = true
     sessionStorage.clear()
     if (role === "customer") navigate("/customer-login", { replace: true })
     else navigate("/login", { replace: true })
-  }
+  }, [role, navigate])
 
-  useSessionSync((session) => {
-    if (!session || session.role !== role) redirectOut()
-  })
+  const handleSessionChange = useCallback((session: any) => {
+    if (!session || session.role !== role) {
+      redirectOut()
+    }
+  }, [role, redirectOut])
+
+  useSessionSync(handleSessionChange)
 
   // For customer role: wait for checkAuth to resolve
   useEffect(() => {
@@ -50,7 +54,7 @@ export default function SessionGuard({ role, children }: { role: GuardRole; chil
     }, 2000)
 
     return () => clearTimeout(timer)
-  }, [role])
+  }, [role, isAuthenticated, redirectOut])
 
   // Once isAuthenticated becomes true, stop checking
   useEffect(() => {
