@@ -15,13 +15,25 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
     
     eventSource = new EventSource(url);
 
-    eventSource.onmessage = (event) => {
+    // Listen for named "update" events from SSE
+    eventSource.addEventListener("update", (event) => {
       try {
         const data = JSON.parse(event.data);
         onMessage(data);
         reconnectAttempts = 0; // Reset on successful message
       } catch (err) {
         console.error("[SSE] Error parsing event:", err);
+      }
+    });
+
+    // Also listen for unnamed messages (fallback)
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        onMessage(data);
+        reconnectAttempts = 0;
+      } catch (err) {
+        // Ignore ping messages that aren't JSON
       }
     };
 
