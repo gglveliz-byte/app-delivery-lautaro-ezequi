@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yallega-v2';
+const CACHE_NAME = 'yallega-v3';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -14,47 +14,42 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Solo interceptar requests GET
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
-  // Skip API calls, SSE endpoints, and navigation requests (HTML pages)
-  if (url.pathname.startsWith('/api/') ||
-      url.pathname.startsWith('/events/') ||
-      event.request.mode === 'navigate' ||
-      event.request.headers.get('accept')?.includes('text/html')) {
+  // Nunca interceptar: API, SSE, ni páginas HTML (navegación)
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/events/') ||
+    event.request.mode === 'navigate' ||
+    (event.request.headers.get('accept') || '').includes('text/html')
+  ) {
     return;
   }
+
+  // Solo cachear assets estáticos (js, css, imágenes, fuentes)
+  const isStaticAsset =
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot)$/);
+
+  if (!isStaticAsset) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (!response || response.status !== 200) {
-          return response;
-        }
-        
-        // Solo cachear respuestas GET
-        if (event.request.method !== 'GET') {
-          return response;
-        }
-        
-        // Solo cachear respuestas basic y cors
-        if (response.type !== 'basic' && response.type !== 'cors') {
-          return response;
-        }
-
-        // Intentar clonar y cachear, pero no fallar si no se puede
-        try {
+        if (response && response.status === 200) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache).catch(() => {
-              // Ignorar errores de cache
-            });
+            cache.put(event.request, responseToCache).catch(() => {});
           });
-        } catch (e) {
-          // Si no se puede clonar, simplemente retornar la respuesta
         }
-        
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => {
+        return caches.match(event.request).then((cached) => cached || new Response('', { status: 408 }));
+      })
   );
 });
