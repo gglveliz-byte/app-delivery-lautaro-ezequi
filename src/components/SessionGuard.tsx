@@ -34,7 +34,7 @@ export default function SessionGuard({ role, children }: { role: GuardRole; chil
     const session = getSession()
     if (!session || session.role !== role) {
       redirectOut()
-      setChecking(false)
+      // NO setChecking(false) aquí — mantener loader hasta que navigate tome efecto
       return
     }
 

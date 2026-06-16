@@ -1,15 +1,33 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Send, User } from "lucide-react";
+import { ArrowLeft, Send } from "lucide-react";
 import { useCustomerSession } from "@/hooks/useCustomerSession";
 import { useChatMessages, useSendChatMessage, trpcMutate } from "@/hooks/useDeliveryData";
 
 const quickMessages = [
   "Hola, una pregunta",
-  "Cuanto falta?",
-  "Gracias!",
+  "¿Cuánto falta?",
+  "¡Gracias!",
   "Llego enseguida",
 ];
+
+function groupMessagesByDate(messages: any[]) {
+  const groups: { date: string; messages: any[] }[] = [];
+  for (const msg of messages) {
+    const date = new Date(msg.createdAt).toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup && lastGroup.date === date) {
+      lastGroup.messages.push(msg);
+    } else {
+      groups.push({ date, messages: [msg] });
+    }
+  }
+  return groups;
+}
 
 export default function Chat() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -49,92 +67,102 @@ export default function Chat() {
     }
   };
 
+  const grouped = groupMessagesByDate(messages || []);
+  const isMine = (msg: any) => msg.senderType === "customer";
+
   return (
-    <div className="mobile-container bg-gray-100 min-h-screen flex flex-col">
+    <div className="mobile-container min-h-screen flex flex-col notranslate">
       {/* Header */}
-      <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-gray-100">
+      <div className="bg-[#075E54] px-4 py-3 flex items-center gap-3 shadow-md z-10">
         <button onClick={() => navigate(-1)} className="touch-target">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+          <ArrowLeft className="w-5 h-5 text-white" />
         </button>
-        <div className="w-9 h-9 bg-[#2E7D32] rounded-full flex items-center justify-center">
-          <User className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+          <span className="text-white text-sm font-medium">
+            {customer?.firstName?.charAt(0) || "?"}
+          </span>
         </div>
         <div className="flex-1">
-          <h1 className="text-sm font-semibold text-gray-800">Soporte</h1>
-          <p className="text-xs text-green-600 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-            En linea
+          <h1 className="text-sm font-semibold text-white">Pedido #{orderId}</h1>
+          <p className="text-xs text-white/70 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+            En línea
           </p>
         </div>
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        <div className="text-center">
-          <span className="text-xs text-gray-400 bg-gray-200 px-3 py-1 rounded-full">
-            Pedido #{orderId}
-          </span>
-        </div>
-        {messages.map((msg: any) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.senderType === "customer" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
-                msg.senderType === "customer"
-                  ? "bg-[#2E7D32] text-white rounded-tr-sm"
-                  : "bg-white text-gray-800 rounded-tl-sm card-shadow"
-              }`}
-            >
-              <p>{msg.message}</p>
-              <p
-                className={`text-[10px] mt-1 ${
-                  msg.senderType === "customer" ? "text-green-200" : "text-gray-400"
-                }`}
-              >
-                {new Date(msg.createdAt).toLocaleTimeString("es-ES", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
+      {/* Messages area */}
+      <div ref={scrollRef} className="chat-bg flex-1 overflow-y-auto px-3 py-2">
+        {grouped.map((group) => (
+          <div key={group.date}>
+            {/* Date separator */}
+            <div className="flex justify-center my-3">
+              <span className="bg-white/90 text-gray-600 text-[11px] px-3 py-1 rounded-lg shadow-sm">
+                {group.date}
+              </span>
             </div>
+            {group.messages.map((msg: any) => (
+              <div
+                key={msg.id}
+                className={`flex mb-2 ${isMine(msg) ? "justify-end" : "justify-start"}`}
+              >
+                <div className={`max-w-[78%] px-3 py-1.5 ${isMine(msg) ? "chat-bubble-mine mr-2" : "chat-bubble-other ml-2"}`}>
+                  {!isMine(msg) && (
+                    <p className="text-[11px] font-semibold text-[#2E7D32] mb-0.5">
+                      {msg.senderName || "Comercio"}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-800 leading-snug">{msg.message}</p>
+                  <p className="text-[10px] text-gray-500 text-right mt-0.5">
+                    {new Date(msg.createdAt).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
+        ))}
+        {messages.length === 0 && (
+          <div className="flex justify-center mt-8">
+            <span className="bg-white/80 text-gray-500 text-xs px-4 py-2 rounded-lg shadow-sm">
+              Los mensajes están cifados. Escribí el primero.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Quick messages */}
+      <div className="bg-white px-3 py-2 border-t border-gray-200 flex gap-2 overflow-x-auto no-scrollbar">
+        {quickMessages.map((qm) => (
+          <button
+            key={qm}
+            onClick={() => handleSend(qm)}
+            className="px-3 py-1.5 bg-[#E8E0D5] rounded-full text-xs text-gray-700 whitespace-nowrap hover:bg-[#D4CDC4] transition-colors"
+          >
+            {qm}
+          </button>
         ))}
       </div>
 
-      {/* Quick Messages */}
-        <div className="bg-white px-4 py-2 border-t border-gray-100 flex gap-2 overflow-x-auto no-scrollbar">
-          {quickMessages.map((qm) => (
-            <button
-              key={qm}
-              onClick={() => handleSend(qm)}
-              className="px-3 py-1.5 bg-gray-100 rounded-full text-xs text-gray-600 whitespace-nowrap hover:bg-gray-200 transition-colors"
-            >
-              {qm}
-            </button>
-          ))}
-        </div>
-
       {/* Input */}
-      <div className="bg-white px-4 py-3 border-t border-gray-100">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend(text)}
-            placeholder="Escribe un mensaje..."
-            className="flex-1 h-10 px-4 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
-          />
-          <button
-            onClick={() => handleSend(text)}
-            disabled={sendChat.isPending || !text.trim()}
-            className="w-10 h-10 bg-[#2E7D32] rounded-full flex items-center justify-center text-white hover:bg-[#1B5E20] disabled:opacity-50 transition-all"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="bg-[#F0F0F0] px-3 py-2 flex items-center gap-2">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend(text)}
+          placeholder="Escribe un mensaje..."
+          className="flex-1 h-10 px-4 bg-white rounded-full text-sm focus:outline-none shadow-sm"
+        />
+        <button
+          onClick={() => handleSend(text)}
+          disabled={sendChat.isPending || !text.trim()}
+          className="w-10 h-10 bg-[#075E54] rounded-full flex items-center justify-center text-white hover:bg-[#064E47] disabled:opacity-40 transition-all flex-shrink-0"
+        >
+          <Send className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
