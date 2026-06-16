@@ -104,8 +104,6 @@ export default function DriverHome() {
     }
   };
 
-  const updateStatusMutation = trpc.driver.updateStatus.useMutation();
-
   const handleToggleOnline = async () => {
     if (!driverId || !driverProfile) return;
     const newStatus = isOnline ? "offline" : "online";
