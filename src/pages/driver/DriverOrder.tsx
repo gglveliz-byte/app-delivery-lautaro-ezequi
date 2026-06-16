@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
+import { useOrderEvents } from "@/hooks/useOrderEvents";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -46,7 +47,13 @@ export default function DriverOrder() {
     { enabled: !!id }
   );
 
+  // Escuchar cambios del pedido en tiempo real
+  useOrderEvents(Number(id));
+
   const utils = trpc.useUtils();
+
+  // Declarar mutation hook FUERA de funciones async
+  const updateStatusMutation = trpc.order.updateStatus.useMutation();
 
   const getCurrentStep = (status: string) => {
     const stepIndex = orderSteps.findIndex((s) => s.key === status);
@@ -62,7 +69,7 @@ export default function DriverOrder() {
     const nextStatus = getNextStatus(order.status);
     if (!nextStatus) return;
 
-    await trpc.order.updateStatus.useMutation().mutateAsync({
+    await updateStatusMutation.mutateAsync({
       id: Number(id),
       status: nextStatus as any,
       driverId: driverId || undefined
