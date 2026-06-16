@@ -47,6 +47,23 @@ export default function DriverHome() {
   });
 
   const updateLocationMutation = trpc.driver.updateLocation.useMutation();
+  const updateStatusMutation = trpc.driver.updateStatus.useMutation();
+
+  // Set driver online when opening the app and sync with backend
+  useEffect(() => {
+    if (!driverId) return;
+    
+    // Mark as online immediately
+    updateStatusMutation.mutate({ id: driverId, status: "online" });
+    setIsOnline(true);
+    
+    // Keep syncing online status every 30 seconds
+    const interval = setInterval(() => {
+      updateStatusMutation.mutate({ id: driverId, status: "online" });
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [driverId, updateStatusMutation]);
 
   const lastUpdateRef = useRef(0);
   const THROTTLE_MS = 15000;
