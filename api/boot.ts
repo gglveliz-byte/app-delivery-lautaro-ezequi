@@ -82,6 +82,22 @@ app.get("/api/events/driver/:driverId", async (c) => {
   });
 });
 
+// SSE endpoint global para productos (usado por Home del cliente)
+app.get("/api/events/products", async (c) => {
+  return streamSSE(c, async (stream) => {
+    const unsubscribe = subscribe("products:global", (data) => {
+      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
+    });
+
+    while (true) {
+      await stream.sleep(30000);
+      stream.writeSSE({ data: "ping", event: "ping" });
+    }
+
+    unsubscribe();
+  });
+});
+
 app.all("/api/trpc/*", async (c) => {
   console.log("[tRPC] matched:", c.req.method, c.req.path);
   try {

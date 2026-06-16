@@ -261,13 +261,16 @@ export const orderRouter = createRouter({
         // Emit SSE event to notify order status change
         emit(`order:${input.id}`, { type: "status_update", status: input.status, driverId: input.driverId });
 
-        // If order was accepted/preparing/ready_for_pickup, notify drivers about available order
-        if (input.status === "accepted" || input.status === "preparing" || input.status === "ready_for_pickup") {
-          emit("driver:all", { type: "new_available", orderId: input.id });
-        }
-
         return updated[0];
       });
+
+      // If order was accepted/preparing/ready_for_pickup, notify all online drivers about available order
+      if (input.status === "accepted" || input.status === "preparing" || input.status === "ready_for_pickup") {
+        const onlineDrivers = await db.select({ id: drivers.id }).from(drivers).where(eq(drivers.status, "online"));
+        onlineDrivers.forEach((driver) => {
+          emit(`driver:${driver.id}`, { type: "new_available", orderId: input.id });
+        });
+      }
 
       return result;
     }),

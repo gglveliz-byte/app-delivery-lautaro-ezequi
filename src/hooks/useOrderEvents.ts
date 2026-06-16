@@ -93,6 +93,7 @@ export function useCommerceEvents(commerceId: number | undefined) {
       `/api/events/commerce/${commerceId}`,
       () => {
         queryClient.invalidateQueries({ queryKey: ["order.getCommerceOrders", commerceId] });
+        queryClient.invalidateQueries({ queryKey: ["product.getByCommerce", commerceId] });
       }
     );
 
@@ -116,4 +117,22 @@ export function useDriverEvents(driverId: number | undefined) {
 
     return () => connection.close();
   }, [driverId, queryClient]);
+}
+
+export function useProductEvents() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const connection = createReconnectingEventSource(
+      `/api/events/products`,
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["product.getFeatured"] });
+        queryClient.invalidateQueries({ queryKey: ["product.list"] });
+        // Invalidar todas las queries de productos por comercio
+        queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "product.getByCommerce" });
+      }
+    );
+
+    return () => connection.close();
+  }, [queryClient]);
 }

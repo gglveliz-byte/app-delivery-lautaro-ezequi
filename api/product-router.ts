@@ -3,6 +3,7 @@ import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { products, commerces } from "@db/schema";
 import { eq, like, and } from "drizzle-orm";
+import { emit } from "./events";
 
 export const productRouter = createRouter({
   list: publicQuery.query(async () => {
@@ -72,6 +73,11 @@ export const productRouter = createRouter({
     .mutation(async ({ input }) => {
       const db = getDb();
       const result = await db.insert(products).values(input).returning();
+      
+      // Emitir eventos SSE
+      emit(`commerce:${input.commerceId}`, { type: "products_update", action: "create" });
+      emit("products:global", { type: "products_update", action: "create" });
+      
       return result[0];
     }),
 
@@ -91,8 +97,20 @@ export const productRouter = createRouter({
     .mutation(async ({ input }) => {
       const db = getDb();
       const { id, ...data } = input;
+      
+      // Obtener producto actual para conocer commerceId
+      const existing = await db.select().from(products).where(eq(products.id, id));
+      const commerceId = existing[0]?.commerceId;
+      
       await db.update(products).set(data).where(eq(products.id, id));
       const result = await db.select().from(products).where(eq(products.id, id));
+      
+      // Emitir eventos SSE
+      if (commerceId) {
+        emit(`commerce:${commerceId}`, { type: "products_update", action: "update", productId: id });
+        emit("products:global", { type: "products_update", action: "update", productId: id });
+      }
+      
       return result[0];
     }),
 
@@ -100,7 +118,19 @@ export const productRouter = createRouter({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = getDb();
+      
+      // Obtener producto antes de eliminar para conocer commerceId
+      const existing = await db.select().from(products).where(eq(products.id, input.id));
+      const commerceId = existing[0]?.commerceId;
+      
       await db.delete(products).where(eq(products.id, input.id));
+      
+      // Emitir eventos SSE
+      if (commerceId) {
+        emit(`commerce:${commerceId}`, { type: "products_update", action: "delete", productId: input.id });
+        emit("products:global", { type: "products_update", action: "delete", productId: input.id });
+      }
+      
       return { success: true };
     }),
 });

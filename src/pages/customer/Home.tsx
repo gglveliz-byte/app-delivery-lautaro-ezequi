@@ -21,6 +21,7 @@ import {
 import { useCart } from "@/hooks/useCart";
 import { useCustomerSession } from "@/hooks/useCustomerSession";
 import { useCategories, useCommerces, useFeaturedProducts, useProductsByCommerce } from "@/hooks/useDeliveryData";
+import { useProductEvents } from "@/hooks/useOrderEvents";
 
 const iconMap: Record<string, React.ReactNode> = {
   UtensilsCrossed: <UtensilsCrossed className="w-5 h-5" />,
@@ -42,6 +43,9 @@ export default function CustomerHome() {
   const { data: featuredProducts, loading: loadingFeatured } = useFeaturedProducts();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+
+  // Escuchar cambios de productos en tiempo real
+  useProductEvents();
 
   const activeCategories = useMemo(() => {
     const ids = new Set(commerces.map((c) => c.categoryId));

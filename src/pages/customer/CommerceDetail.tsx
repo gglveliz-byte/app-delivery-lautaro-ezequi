@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, Star, Clock, Phone, MapPin, Plus, ShoppingCart } from "lucide-react";
 import { useCommerce, useProductsByCommerce } from "@/hooks/useDeliveryData";
 import { useCart } from "@/hooks/useCart";
+import { useCommerceEvents } from "@/hooks/useOrderEvents";
 
 export default function CommerceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -9,6 +10,9 @@ export default function CommerceDetail() {
   const { data: commerce, loading: loadingCommerce } = useCommerce(Number(id));
   const { data: allProducts, loading: loadingProducts } = useProductsByCommerce(Number(id));
   const { addItem, totalItems } = useCart();
+
+  // Escuchar cambios de productos y órdenes en tiempo real
+  useCommerceEvents(Number(id));
 
   const products = allProducts.filter((p: any) => p.isAvailable === "yes");
 
