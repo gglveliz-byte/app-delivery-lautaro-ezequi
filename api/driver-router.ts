@@ -4,6 +4,7 @@ import { getDb } from "./queries/connection";
 import { drivers, driverEarnings, orders, orderStatusHistory } from "@db/schema";
 import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import { emit } from "./events";
+import { verifyDriverRefreshToken, refreshDriverAccessToken, clearDriverCookies, setDriverCookies } from "./driver-auth";
 
 export const driverRouter = createRouter({
   list: publicQuery.query(async () => {
@@ -64,9 +65,6 @@ export const driverRouter = createRouter({
         .set({ currentLat: input.lat, currentLng: input.lng })
         .where(eq(drivers.id, input.id));
 
-      // Emit SSE event to notify about driver location update
-      emit(`driver:${input.id}`, { type: "location_update", lat: input.lat, lng: input.lng });
-
       return { success: true };
     }),
 
@@ -124,6 +122,52 @@ export const driverRouter = createRouter({
         .orderBy(desc(orders.createdAt));
     }),
 
+  getOrderHistory: driverQuery
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = getDb();
+      return db
+        .select({
+          id: orders.id,
+          status: orders.status,
+          total: orders.total,
+          deliveryFee: orders.deliveryFee,
+          deliveryAddress: orders.deliveryAddress,
+          customerPhone: orders.customerPhone,
+          createdAt: orders.createdAt,
+          updatedAt: orders.updatedAt,
+        })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.driverId, input.id),
+            inArray(orders.status, ["delivered", "cancelled"])
+          )
+        )
+        .orderBy(desc(orders.updatedAt));
+    }),
+
+  refreshToken: publicQuery.mutation(async ({ ctx }) => {
+    const raw = ctx.req.headers.get("cookie") || "";
+    const cookies = Object.fromEntries(
+      raw.split(";").filter(Boolean).map(c => {
+        const [k, ...v] = c.trim().split("=");
+        return [decodeURIComponent(k), decodeURIComponent(v.join("="))];
+      })
+    );
+    const refreshToken = cookies["quickgo_driver_refresh"];
+    if (!refreshToken) return { success: false };
+    const driverId = await verifyDriverRefreshToken(refreshToken);
+    if (!driverId) return { success: false };
+    await setDriverCookies(ctx.resHeaders, ctx.req.headers, driverId);
+    return { success: true };
+  }),
+
+  logout: publicQuery.mutation(async ({ ctx }) => {
+    clearDriverCookies(ctx.resHeaders);
+    return { success: true };
+  }),
+
   acceptOrder: driverQuery
     .input(z.object({ driverId: z.number(), orderId: z.number() }))
     .mutation(async ({ input, ctx }) => {
@@ -138,6 +182,9 @@ export const driverRouter = createRouter({
         const order = orderResult[0];
         if (!order) throw new Error("Pedido no encontrado");
         if (order.driverId) throw new Error("Pedido ya asignado");
+        if (!["accepted", "preparing", "ready_for_pickup"].includes(order.status)) {
+          throw new Error("Pedido no está disponible para aceptar");
+        }
 
         await tx
           .update(orders)

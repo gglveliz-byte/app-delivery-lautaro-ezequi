@@ -10,6 +10,7 @@ const statusColors: Record<string, string> = {
   received: "bg-yellow-100 text-yellow-800",
   accepted: "bg-blue-100 text-blue-800",
   preparing: "bg-purple-100 text-purple-800",
+  ready_for_pickup: "bg-indigo-100 text-indigo-800",
   driver_assigned: "bg-indigo-100 text-indigo-800",
   picked_up: "bg-pink-100 text-pink-800",
   on_the_way: "bg-orange-100 text-orange-800",
@@ -58,7 +59,7 @@ export default function AdminOrders() {
         </div>
 
         <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar">
-          {["all", "received", "preparing", "on_the_way", "delivered"].map((f) => (
+          {["all", "received", "preparing", "ready_for_pickup", "on_the_way", "delivered"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -68,7 +69,7 @@ export default function AdminOrders() {
                   : "bg-white text-gray-600 border border-gray-200"
               }`}
             >
-              {f === "all" ? "Todos" : f === "received" ? "Nuevos" : f === "preparing" ? "Preparando" : f === "on_the_way" ? "En camino" : "Entregados"}
+              {f === "all" ? "Todos" : f === "received" ? "Nuevos" : f === "preparing" ? "Preparando" : f === "ready_for_pickup" ? "Listos" : f === "on_the_way" ? "En camino" : "Entregados"}
             </button>
           ))}
         </div>

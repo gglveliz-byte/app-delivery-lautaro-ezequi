@@ -59,7 +59,6 @@ export default function Register() {
     try {
       const result: any = await registerCustomer(form);
       if (result.success && result.customer) {
-        sessionStorage.clear();
         login(result.customer);
         localStorage.setItem("qs_session", JSON.stringify({ role: "customer", ts: Date.now() }));
         navigate("/home");

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -16,7 +16,8 @@ import "leaflet/dist/leaflet.css";
 
 const orderSteps = [
   { key: "driver_assigned", label: "Camino al comercio" },
-  { key: "preparing", label: "Esperando pedido" },
+  { key: "preparing", label: "En comercio" },
+  { key: "ready_for_pickup", label: "Listo para recoger" },
   { key: "picked_up", label: "Camino al cliente" },
   { key: "on_the_way", label: "En camino" },
   { key: "delivered", label: "Entregado" },
@@ -26,11 +27,10 @@ export default function DriverOrder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [driverId, setDriverId] = useState<number | null>(null);
-  const [map, setMap] = useState<L.Map | null>(null);
-  const [markers, setMarkers] = useState<L.Marker[]>([]);
+  const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
-    const session = sessionStorage.getItem("driver_user");
+    const session = localStorage.getItem("driver_user");
     if (session) {
       try {
         const data = JSON.parse(session);
@@ -74,7 +74,8 @@ export default function DriverOrder() {
   const getNextStatus = (current: string) => {
     const transitions: Record<string, string> = {
       driver_assigned: "preparing",
-      preparing: "picked_up",
+      preparing: "ready_for_pickup",
+      ready_for_pickup: "picked_up",
       picked_up: "on_the_way",
       on_the_way: "delivered",
     };
@@ -86,12 +87,12 @@ export default function DriverOrder() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${address}`, "_blank");
   };
 
-  // Initialize map
+  // Initialize map and markers
   useEffect(() => {
-    if (!order || map) return;
+    if (!order || mapRef.current) return;
 
     const mapContainer = document.getElementById("driver-map");
-    if (!mapContainer) return;
+    if (!mapContainer || !mapContainer.offsetWidth) return;
 
     const newMap = L.map(mapContainer, {
       zoomControl: false,
@@ -99,55 +100,50 @@ export default function DriverOrder() {
     }).setView([-33.45, -70.65], 13);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(newMap);
-    setMap(newMap);
+
+    newMap.whenReady(() => {
+      const newMarkers: L.Marker[] = [];
+
+      // Commerce marker
+      if (order.commerces?.[0]?.lat && order.commerces?.[0]?.lng) {
+        const lat = parseFloat(order.commerces[0].lat);
+        const lng = parseFloat(order.commerces[0].lng);
+        const marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="width:30px;height:30px;background:#2E7D32;border-radius:50%;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M15 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M5 18H3V6a1 1 0 0 1 1-1h10l3 5h2a3 3 0 0 1 3 3v5h-2"/><path d="M9 18h6"/><circle cx="18" cy="10" r="1"/></svg></div>`,
+          })
+        }).addTo(newMap);
+        newMarkers.push(marker);
+      }
+
+      // Driver marker
+      if (order.driver?.currentLat && order.driver?.currentLng) {
+        const lat = parseFloat(order.driver.currentLat);
+        const lng = parseFloat(order.driver.currentLng);
+        const marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="width:30px;height:30px;background:#1565C0;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M15 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M5 18H3V6a1 1 0 0 1 1-1h10l3 5h2a3 3 0 0 1 3 3v5h-2"/><path d="M9 18h6"/></svg></div>`,
+          })
+        }).addTo(newMap);
+        newMarkers.push(marker);
+      }
+
+      // Fit bounds
+      const group = new L.FeatureGroup(newMarkers);
+      if (group.getLayers().length > 0) {
+        newMap.fitBounds(group.getBounds().pad(0.2));
+      }
+    });
+
+    mapRef.current = newMap;
 
     return () => {
+      mapRef.current = null;
       newMap.remove();
     };
-  }, [order, map]);
-
-  // Update markers when order changes
-  useEffect(() => {
-    if (!map || !order) return;
-
-    // Clear existing markers
-    markers.forEach(m => map.removeLayer(m));
-    const newMarkers: L.Marker[] = [];
-
-    // Commerce marker
-    if (order.commerces?.[0]?.lat && order.commerces?.[0]?.lng) {
-      const lat = parseFloat(order.commerces[0].lat);
-      const lng = parseFloat(order.commerces[0].lng);
-      const marker = L.marker([lat, lng], {
-        icon: L.divIcon({
-          className: "",
-          html: `<div style="width:30px;height:30px;background:#2E7D32;border-radius:50%;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M15 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M5 18H3V6a1 1 0 0 1 1-1h10l3 5h2a3 3 0 0 1 3 3v5h-2"/><path d="M9 18h6"/><circle cx="18" cy="10" r="1"/></svg></div>`,
-        })
-      }).addTo(map);
-      newMarkers.push(marker);
-    }
-
-    // Driver marker
-    if (order.driver?.currentLat && order.driver?.currentLng) {
-      const lat = parseFloat(order.driver.currentLat);
-      const lng = parseFloat(order.driver.currentLng);
-      const marker = L.marker([lat, lng], {
-        icon: L.divIcon({
-          className: "",
-          html: `<div style="width:30px;height:30px;background:#1565C0;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M15 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M5 18H3V6a1 1 0 0 1 1-1h10l3 5h2a3 3 0 0 1 3 3v5h-2"/><path d="M9 18h6"/></svg></div>`,
-        })
-      }).addTo(map);
-      newMarkers.push(marker);
-    }
-
-    setMarkers(newMarkers);
-
-    // Fit bounds
-    const group = new L.FeatureGroup(newMarkers);
-    if (group.getLayers().length > 0) {
-      map.fitBounds(group.getBounds().pad(0.2));
-    }
-  }, [map, order]);
+  }, [order]);
 
   if (isLoading) {
     return (
@@ -195,7 +191,7 @@ export default function DriverOrder() {
                 <p className="text-xs text-gray-500">{order.deliveryAddress.split(",")[0] || "Dirección de entrega"}</p>
                 <div className="flex gap-2 mt-1">
                   <button
-                    onClick={() => navigate(`/chat/${id}`)}
+                    onClick={() => navigate(`/driver/chat/${id}`)}
                     className="text-xs text-[#2E7D32] flex items-center gap-0.5"
                   >
                     <MessageCircle className="w-3 h-3" /> Chat
@@ -215,7 +211,7 @@ export default function DriverOrder() {
                     <Phone className="w-3 h-3" /> Llamar
                   </a>
                   <button
-                    onClick={() => navigate(`/chat/${id}`)}
+                    onClick={() => navigate(`/driver/chat/${id}`)}
                     className="text-xs text-blue-600 flex items-center gap-0.5"
                   >
                     <MessageCircle className="w-3 h-3" /> Chat
@@ -267,7 +263,8 @@ export default function DriverOrder() {
             className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] active:scale-[0.98] transition-all"
           >
             {order.status === "driver_assigned" ? "Llegué al comercio" :
-             order.status === "preparing" ? "Pedido recogido" :
+             order.status === "preparing" ? "Esperando pedido..." :
+             order.status === "ready_for_pickup" ? "Pedido recogido" :
              order.status === "picked_up" ? "En camino al cliente" :
              "Completar entrega"}
           </button>

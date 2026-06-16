@@ -18,6 +18,7 @@ export const orderStatusEnum = pgEnum("order_status", [
   "received",
   "accepted",
   "preparing",
+  "ready_for_pickup",
   "driver_assigned",
   "picked_up",
   "on_the_way",

@@ -28,7 +28,7 @@ export default function DriverProfile() {
   const utils = trpc.useUtils();
 
   useEffect(() => {
-    const session = sessionStorage.getItem("driver_user");
+    const session = localStorage.getItem("driver_user");
     if (session) {
       try {
         const data = JSON.parse(session);
@@ -83,7 +83,7 @@ export default function DriverProfile() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem("driver_user");
+    localStorage.removeItem("driver_user");
     navigate("/login");
   };
 

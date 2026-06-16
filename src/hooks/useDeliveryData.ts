@@ -63,7 +63,7 @@ export function useCommerce(id: number) {
 }
 
 export function useMerchantCommerceId() {
-  const storedUser = sessionStorage.getItem("merchant_user");
+  const storedUser = localStorage.getItem("merchant_user");
   const merchantUser = storedUser ? JSON.parse(storedUser) : null;
   const [commerceId, setCommerceId] = useState<number | null>(merchantUser?.commerceId || null);
 
@@ -80,7 +80,7 @@ export function useMerchantCommerceId() {
       setCommerceId(id);
       if (merchantUser) {
         merchantUser.commerceId = id;
-        sessionStorage.setItem("merchant_user", JSON.stringify(merchantUser));
+        localStorage.setItem("merchant_user", JSON.stringify(merchantUser));
       }
     }
   }, [query.data, commerceId, merchantUser]);
@@ -398,7 +398,7 @@ export function useAdminAssignDriver() {
 export function useDriverSession() {
   const [driverUser, setDriverUser] = useState<any>(null);
   useEffect(() => {
-    const session = sessionStorage.getItem("driver_user") || localStorage.getItem("qs_driver_user");
+    const session = localStorage.getItem("driver_user") || localStorage.getItem("qs_driver_user");
     if (session) {
       try { setDriverUser(JSON.parse(session)); } catch { /* empty */ }
     }

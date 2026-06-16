@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router";
-import { MapPin, Clock, Navigation, User, Settings, List, BarChart3, Loader2 } from "lucide-react";
+import { MapPin, Clock, Navigation, User, Settings, List, BarChart3, Loader2, Package } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { useDriverSession } from "@/hooks/useDeliveryData";
 import { useDriverEvents } from "@/hooks/useOrderEvents";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -48,10 +48,16 @@ export default function DriverHome() {
 
   const updateLocationMutation = trpc.driver.updateLocation.useMutation();
 
+  const lastUpdateRef = useRef(0);
+  const THROTTLE_MS = 15000;
+
   useEffect(() => {
     if (!driverId) return;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
+        const now = Date.now();
+        if (now - lastUpdateRef.current < THROTTLE_MS) return;
+        lastUpdateRef.current = now;
         updateLocationMutation.mutate({
           id: driverId,
           lat: String(pos.coords.latitude),
@@ -218,7 +224,7 @@ export default function DriverHome() {
       </div>
 
       {/* Driver Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-2 flex justify-around items-center z-50" style={{ maxWidth: "480px", margin: "0 auto" }}>
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-2 flex justify-around items-center z-50" style={{ maxWidth: "480px", margin: "0 auto" }}>
         <button onClick={() => navigate("/driver")} className="bottom-nav-item active">
           <List className="w-5 h-5" />
           <span className="text-[10px]">Pedidos</span>
@@ -226,6 +232,10 @@ export default function DriverHome() {
         <button onClick={() => navigate("/driver/earnings")} className="bottom-nav-item">
           <BarChart3 className="w-5 h-5" />
           <span className="text-[10px]">Ganancias</span>
+        </button>
+        <button onClick={() => navigate("/driver/history")} className="bottom-nav-item">
+          <Package className="w-5 h-5" />
+          <span className="text-[10px]">Historial</span>
         </button>
         <button onClick={() => navigate("/driver/profile")} className="bottom-nav-item">
           <User className="w-5 h-5" />

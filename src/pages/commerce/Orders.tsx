@@ -31,6 +31,7 @@ export default function CommerceOrders() {
       received: "bg-yellow-100 text-yellow-800",
       accepted: "bg-blue-100 text-blue-800",
       preparing: "bg-indigo-100 text-indigo-800",
+      ready_for_pickup: "bg-purple-100 text-purple-800",
       driver_assigned: "bg-purple-100 text-purple-800",
       picked_up: "bg-orange-100 text-orange-800",
       on_the_way: "bg-orange-100 text-orange-800",
@@ -41,8 +42,9 @@ export default function CommerceOrders() {
       received: "Nuevo",
       accepted: "Aceptado",
       preparing: "Preparando",
+      ready_for_pickup: "Listo para recoger",
       driver_assigned: "Con repartidor",
-      picked_up: "Listo",
+      picked_up: "Recogido",
       on_the_way: "En camino",
       delivered: "Entregado",
       cancelled: "Cancelado",
@@ -75,7 +77,7 @@ export default function CommerceOrders() {
             { key: "all", label: "Todos" },
             { key: "received", label: "Nuevos" },
             { key: "preparing", label: "Preparando" },
-            { key: "picked_up", label: "Listos" },
+            { key: "ready_for_pickup", label: "Listos" },
             { key: "on_the_way", label: "En camino" },
             { key: "delivered", label: "Entregados" },
           ].map((f) => (
@@ -183,7 +185,7 @@ export default function CommerceOrders() {
                     )}
                     {order.status === "preparing" && (
                       <button
-                        onClick={() => handleStatusUpdate(order.id, "picked_up")}
+                        onClick={() => handleStatusUpdate(order.id, "ready_for_pickup")}
                         className="w-full h-10 bg-purple-50 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-100 flex items-center justify-center gap-1.5"
                       >
                         <CheckCircle className="w-4 h-4" />

@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { env } from "./lib/env";
 import { setAdminCookie, clearAdminCookie } from "./admin-auth";
-import { setDriverCookie, clearDriverCookie } from "./driver-auth";
+import { setDriverCookies, clearDriverCookies } from "./driver-auth";
 import { setMerchantCookie, clearMerchantCookie } from "./merchant-auth";
 
 export async function seedAdminUser() {
@@ -35,7 +35,7 @@ export const loginRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       clearAdminCookie(ctx.resHeaders);
-      clearDriverCookie(ctx.resHeaders);
+      clearDriverCookies(ctx.resHeaders);
       clearMerchantCookie(ctx.resHeaders);
 
       if (input.email) {
@@ -87,7 +87,7 @@ export const loginRouter = createRouter({
         if (driver && driver.passwordHash) {
           const valid = await bcrypt.compare(input.password, driver.passwordHash);
           if (valid) {
-            await setDriverCookie(ctx.resHeaders, ctx.req.headers, driver.id);
+            await setDriverCookies(ctx.resHeaders, ctx.req.headers, driver.id);
             return {
               success: true,
               role: "driver",

@@ -9,7 +9,7 @@ export default function DriverEarnings() {
   const [period, setPeriod] = useState<"day" | "week" | "month">("week");
 
   useEffect(() => {
-    const session = sessionStorage.getItem("driver_user");
+    const session = localStorage.getItem("driver_user");
     if (session) {
       try {
         const data = JSON.parse(session);

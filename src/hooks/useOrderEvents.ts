@@ -1,19 +1,25 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-export function useOrderEvents(orderId: number | undefined) {
-  const queryClient = useQueryClient();
+const MAX_RECONNECT_DELAY = 30000;
+const BASE_RECONNECT_DELAY = 1000;
 
-  useEffect(() => {
-    if (!orderId) return;
+function createReconnectingEventSource(url: string, onMessage: (data: unknown) => void): { close: () => void } {
+  let eventSource: EventSource | null = null;
+  let reconnectAttempts = 0;
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  let isClosed = false;
 
-    const eventSource = new EventSource(`/api/events/orders/${orderId}`);
+  const connect = () => {
+    if (isClosed) return;
+    
+    eventSource = new EventSource(url);
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        // Invalidate and refetch order query
-        queryClient.invalidateQueries({ queryKey: ["order.getById", orderId] });
+        onMessage(data);
+        reconnectAttempts = 0; // Reset on successful message
       } catch (err) {
         console.error("[SSE] Error parsing event:", err);
       }
@@ -21,12 +27,59 @@ export function useOrderEvents(orderId: number | undefined) {
 
     eventSource.onerror = (err) => {
       console.error("[SSE] Connection error:", err);
-      eventSource.close();
-    };
+      
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
 
-    return () => {
-      eventSource.close();
+      if (isClosed) return;
+
+      // Exponential backoff with jitter
+      const delay = Math.min(
+        BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts) + Math.random() * 1000,
+        MAX_RECONNECT_DELAY
+      );
+      
+      reconnectAttempts++;
+      console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+      
+      reconnectTimeout = setTimeout(connect, delay);
     };
+  };
+
+  connect();
+
+  return {
+    close: () => {
+      isClosed = true;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    }
+  };
+}
+
+export function useOrderEvents(orderId: number | undefined) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!orderId) return;
+
+    const connection = createReconnectingEventSource(
+      `/api/events/orders/${orderId}`,
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["order.getById", orderId] });
+        queryClient.invalidateQueries({ queryKey: ["chat.getByOrder", orderId] });
+      }
+    );
+
+    return () => connection.close();
   }, [orderId, queryClient]);
 }
 
@@ -36,26 +89,14 @@ export function useCommerceEvents(commerceId: number | undefined) {
   useEffect(() => {
     if (!commerceId) return;
 
-    const eventSource = new EventSource(`/api/events/commerce/${commerceId}`);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // Invalidate commerce orders
+    const connection = createReconnectingEventSource(
+      `/api/events/commerce/${commerceId}`,
+      () => {
         queryClient.invalidateQueries({ queryKey: ["order.getCommerceOrders", commerceId] });
-      } catch (err) {
-        console.error("[SSE] Error parsing event:", err);
       }
-    };
+    );
 
-    eventSource.onerror = (err) => {
-      console.error("[SSE] Connection error:", err);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
+    return () => connection.close();
   }, [commerceId, queryClient]);
 }
 
@@ -65,25 +106,14 @@ export function useDriverEvents(driverId: number | undefined) {
   useEffect(() => {
     if (!driverId) return;
 
-    const eventSource = new EventSource(`/api/events/driver/${driverId}`);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // Invalidate driver available orders
+    const connection = createReconnectingEventSource(
+      `/api/events/driver/${driverId}`,
+      () => {
         queryClient.invalidateQueries({ queryKey: ["order.getAvailableForDriver"] });
-      } catch (err) {
-        console.error("[SSE] Error parsing event:", err);
+        queryClient.invalidateQueries({ queryKey: ["driver.getOrderHistory"] });
       }
-    };
+    );
 
-    eventSource.onerror = (err) => {
-      console.error("[SSE] Connection error:", err);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
+    return () => connection.close();
   }, [driverId, queryClient]);
 }

@@ -24,7 +24,7 @@ export default function CommerceDashboard() {
   const { data: stats } = useCommerceStats(commerceId || 0);
 
   useEffect(() => {
-    const storedUser = sessionStorage.getItem("merchant_user");
+    const storedUser = localStorage.getItem("merchant_user");
     const merchantUser = storedUser ? JSON.parse(storedUser) : null;
     if (merchantUser?.name) setCommerceName(merchantUser.name);
   }, []);
@@ -54,7 +54,7 @@ export default function CommerceDashboard() {
           ))}
         </nav>
         <div className="p-4 border-t border-gray-100">
-          <button onClick={() => { sessionStorage.removeItem("merchant_user"); navigate("/"); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+          <button onClick={() => { localStorage.removeItem("merchant_user"); localStorage.removeItem("qs_session"); navigate("/login"); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors">
             <LogOut className="w-5 h-5" />
             Salir
           </button>

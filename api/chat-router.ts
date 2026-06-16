@@ -3,6 +3,7 @@ import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { chatMessages } from "@db/schema";
 import { eq, and, ne } from "drizzle-orm";
+import { emit } from "./events";
 
 export const chatRouter = createRouter({
   send: publicQuery
@@ -18,6 +19,7 @@ export const chatRouter = createRouter({
     .mutation(async ({ input }) => {
       const db = getDb();
       const result = await db.insert(chatMessages).values(input).returning();
+      emit(`order:${input.orderId}`, { type: "chat_message", orderId: input.orderId });
       return result[0];
     }),
 

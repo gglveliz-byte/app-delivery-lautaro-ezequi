@@ -22,6 +22,8 @@ const DriverHome = lazy(() => import('./pages/driver/DriverHome'))
 const DriverOrder = lazy(() => import('./pages/driver/DriverOrder'))
 const DriverEarnings = lazy(() => import('./pages/driver/DriverEarnings'))
 const DriverProfile = lazy(() => import('./pages/driver/DriverProfile'))
+const DriverChat = lazy(() => import('./pages/driver/DriverChat'))
+const DriverHistory = lazy(() => import('./pages/driver/DriverHistory'))
 
 // Commerce dashboard
 const CommerceDashboard = lazy(() => import('./pages/commerce/Dashboard'))
@@ -74,6 +76,8 @@ export default function App() {
         <Route path="/driver/order/:id" element={<SessionGuard role="driver"><DriverOrder /></SessionGuard>} />
         <Route path="/driver/earnings" element={<SessionGuard role="driver"><DriverEarnings /></SessionGuard>} />
         <Route path="/driver/profile" element={<SessionGuard role="driver"><DriverProfile /></SessionGuard>} />
+        <Route path="/driver/chat/:orderId" element={<SessionGuard role="driver"><DriverChat /></SessionGuard>} />
+        <Route path="/driver/history" element={<SessionGuard role="driver"><DriverHistory /></SessionGuard>} />
 
         {/* Commerce Dashboard Routes */}
         <Route path="/commerce" element={<SessionGuard role="merchant"><CommerceDashboard /></SessionGuard>} />

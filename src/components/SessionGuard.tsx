@@ -15,7 +15,8 @@ export default function SessionGuard({ role, children }: { role: GuardRole; chil
   const redirectOut = useCallback(() => {
     if (redirected.current) return
     redirected.current = true
-    sessionStorage.clear()
+    // Only clear the specific session flag, not all storage
+    localStorage.removeItem("qs_session")
     if (role === "customer") navigate("/customer-login", { replace: true })
     else navigate("/login", { replace: true })
   }, [role, navigate])
@@ -42,16 +43,16 @@ export default function SessionGuard({ role, children }: { role: GuardRole; chil
       return
     }
 
-    // Customer needs auth check from context
+    // Customer needs auth check from context - let it resolve naturally
     if (isAuthenticated) {
       setChecking(false)
       return
     }
 
+    // Wait for checkAuth to resolve without aggressive timeout
     const timer = setTimeout(() => {
       setChecking(false)
-      if (!isAuthenticated) redirectOut()
-    }, 2000)
+    }, 3000)
 
     return () => clearTimeout(timer)
   }, [role, isAuthenticated, redirectOut])

@@ -20,7 +20,6 @@ export default function CustomerLogin() {
     try {
       const result: any = await trpcMutate("customer.login", { phone: phone.trim() });
       if (result?.success && result.customer) {
-        sessionStorage.clear();
         login(result.customer);
         localStorage.setItem("qs_session", JSON.stringify({ role: "customer", ts: Date.now() }));
         navigate("/home");

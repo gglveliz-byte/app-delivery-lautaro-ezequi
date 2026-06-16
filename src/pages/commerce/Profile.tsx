@@ -39,7 +39,7 @@ export default function CommerceProfile() {
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
 
-  const storedUser = sessionStorage.getItem("merchant_user");
+  const storedUser = localStorage.getItem("merchant_user");
   const merchantUser = storedUser ? JSON.parse(storedUser) : null;
   const registeredEmail = merchantUser?.email || "";
   const { commerceId } = useMerchantCommerceId();

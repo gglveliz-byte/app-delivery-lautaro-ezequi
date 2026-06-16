@@ -33,7 +33,6 @@ export default function Login() {
 
       if (result?.success) {
         const role = result.role;
-        sessionStorage.clear();
         await fetch("/api/trpc/customer.logout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -41,10 +40,10 @@ export default function Login() {
           credentials: "include",
         });
         if (result.user && role === "merchant") {
-          sessionStorage.setItem("merchant_user", JSON.stringify(result.user));
+          localStorage.setItem("merchant_user", JSON.stringify(result.user));
         }
         if (result.user && role === "driver") {
-          sessionStorage.setItem("driver_user", JSON.stringify(result.user));
+          localStorage.setItem("driver_user", JSON.stringify(result.user));
         }
         localStorage.setItem("qs_session", JSON.stringify({ role, ts: Date.now() }));
         if (role === "admin") navigate("/admin");

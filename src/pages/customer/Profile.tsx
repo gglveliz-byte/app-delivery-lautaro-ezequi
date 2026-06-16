@@ -245,7 +245,6 @@ export default function CustomerProfile() {
           onClick={() => {
             logout();
             localStorage.removeItem("qs_session");
-            sessionStorage.clear();
             navigate("/customer-login");
           }}
           className="w-full bg-white rounded-xl card-shadow p-4 flex items-center gap-3 text-red-500 hover:bg-red-50 transition-colors"

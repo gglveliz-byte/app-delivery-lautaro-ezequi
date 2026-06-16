@@ -67,6 +67,7 @@ const statusSteps = [
   { key: "received", label: "Recibido", description: "Pedido recibido" },
   { key: "accepted", label: "Aceptado", description: "Pedido aceptado" },
   { key: "preparing", label: "Preparando", description: "Preparando pedido" },
+  { key: "ready_for_pickup", label: "Listo", description: "Pedido listo para recoger" },
   { key: "driver_assigned", label: "Repartidor", description: "Repartidor asignado" },
   { key: "picked_up", label: "Recogido", description: "Pedido recogido" },
   { key: "on_the_way", label: "En camino", description: "En camino a tu direccion" },

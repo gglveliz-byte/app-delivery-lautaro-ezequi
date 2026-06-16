@@ -158,7 +158,7 @@ export const orderRouter = createRouter({
         .orderBy(desc(orders.createdAt));
     }),
 
-getAvailableForDriver: publicQuery.query(async () => {
+  getAvailableForDriver: publicQuery.query(async () => {
     const db = getDb();
     const availableOrders = await db
       .select({
@@ -184,7 +184,7 @@ getAvailableForDriver: publicQuery.query(async () => {
       .leftJoin(commerces, eq(commerces.id, orderItems.commerceId))
       .where(
         and(
-          inArray(orders.status, ["accepted", "preparing"]),
+          inArray(orders.status, ["accepted", "preparing", "ready_for_pickup"]),
           sql`${orders.driverId} IS NULL`
         )
       )
@@ -208,6 +208,7 @@ getAvailableForDriver: publicQuery.query(async () => {
           "received",
           "accepted",
           "preparing",
+          "ready_for_pickup",
           "driver_assigned",
           "picked_up",
           "on_the_way",
@@ -260,8 +261,8 @@ getAvailableForDriver: publicQuery.query(async () => {
         // Emit SSE event to notify order status change
         emit(`order:${input.id}`, { type: "status_update", status: input.status, driverId: input.driverId });
 
-        // If order was accepted/preparing, notify drivers about available order
-        if (input.status === "accepted" || input.status === "preparing") {
+        // If order was accepted/preparing/ready_for_pickup, notify drivers about available order
+        if (input.status === "accepted" || input.status === "preparing" || input.status === "ready_for_pickup") {
           emit("driver:all", { type: "new_available", orderId: input.id });
         }
 
