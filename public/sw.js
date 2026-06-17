@@ -29,7 +29,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Solo cachear assets estáticos (js, css, imágenes, fuentes)
+  // Solo cachear assets estáticos del propio origen (js, css, imágenes, fuentes)
+  if (url.origin !== self.location.origin) return;
+
   const isStaticAsset =
     url.pathname.endsWith('.js') ||
     url.pathname.endsWith('.css') ||
