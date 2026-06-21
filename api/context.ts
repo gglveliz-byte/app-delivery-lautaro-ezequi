@@ -3,7 +3,7 @@ import type { Customer, User, Driver } from "@db/schema";
 import { verifyAccessToken } from "./customer-auth";
 import { verifyAdminToken } from "./admin-auth";
 import { verifyDriverToken, refreshDriverAccessToken } from "./driver-auth";
-import { verifyMerchantToken } from "./merchant-auth";
+import { verifyMerchantToken, verifyMerchantRefreshToken } from "./merchant-auth";
 import { getDb } from "./queries/connection";
 import { customers, users, drivers } from "@db/schema";
 import { eq, and } from "drizzle-orm";
@@ -88,12 +88,29 @@ async function getDriverFromCookie(headers: Headers, resHeaders: Headers): Promi
   return result[0] || null;
 }
 
-async function getMerchantFromCookie(headers: Headers): Promise<User | null> {
+async function getMerchantFromCookie(headers: Headers, resHeaders: Headers): Promise<User | null> {
   const cookies = cookie.parse(headers.get("cookie") || "");
   const token = cookies["quickgo_merchant_token"];
-  if (!token) return null;
+  const refreshToken = cookies["quickgo_merchant_refresh"];
 
-  const userId = await verifyMerchantToken(token);
+  let userId: number | null = null;
+
+  if (token) {
+    userId = await verifyMerchantToken(token);
+  }
+
+  if (!userId && refreshToken) {
+    userId = await verifyMerchantRefreshToken(refreshToken);
+    if (userId) {
+      const db = getDb();
+      const result = await db.select().from(users).where(and(eq(users.id, userId), eq(users.role, "merchant")));
+      if (result.length > 0) {
+        const { setMerchantCookie } = await import("./merchant-auth");
+        await setMerchantCookie(resHeaders, headers, userId);
+      }
+    }
+  }
+
   if (!userId) return null;
 
   const db = getDb();
@@ -109,7 +126,7 @@ export async function createContext(
     ctx.customer = await getCustomerFromCookie(opts.req.headers) ?? undefined;
     ctx.admin = await getAdminFromCookie(opts.req.headers) ?? undefined;
     ctx.driver = await getDriverFromCookie(opts.req.headers, opts.resHeaders) ?? undefined;
-    ctx.merchant = await getMerchantFromCookie(opts.req.headers) ?? undefined;
+    ctx.merchant = await getMerchantFromCookie(opts.req.headers, opts.resHeaders) ?? undefined;
   } catch {}
   return ctx;
 }

@@ -14,6 +14,7 @@ import { useGetAdminReports, useSettings, useUpdateSetting } from "@/hooks/useDe
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import AdminLayout from "@/components/AdminLayout";
 
 export default function AdminSettings() {
   const navigate = useNavigate();
@@ -128,7 +129,7 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AdminLayout>
       <header className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/admin")} className="touch-target">
@@ -279,6 +280,6 @@ export default function AdminSettings() {
           </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
+import { trpcMutate } from "@/hooks/useDeliveryData";
 
 export default function DriverProfile() {
   const navigate = useNavigate();
@@ -82,8 +83,10 @@ export default function DriverProfile() {
     await updateStatusMutation.mutateAsync({ id: driver.id, status: newStatus });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await trpcMutate("login.logout", {}).catch(() => {});
     localStorage.removeItem("driver_user");
+    localStorage.removeItem("qs_session");
     navigate("/login");
   };
 

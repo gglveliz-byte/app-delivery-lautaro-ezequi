@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { trpcMutate } from "./useDeliveryData";
 
 type AuthUser = {
   id: number;
@@ -33,6 +34,7 @@ export function useAuth() {
   }, []);
 
   const logout = useCallback(async () => {
+    await trpcMutate("login.logout", {}).catch(() => {});
     setUser(null);
     navigate("/login");
   }, [navigate]);

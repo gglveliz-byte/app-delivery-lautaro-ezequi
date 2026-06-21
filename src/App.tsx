@@ -1,9 +1,11 @@
 import { Routes, Route } from 'react-router'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import SessionGuard from '@/components/SessionGuard'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { QueryProvider } from '@/providers/QueryProvider'
+import { trpcMutate } from '@/hooks/useDeliveryData'
+import { getSession } from '@/hooks/useSessionSync'
 
 // Public pages
 const Welcome = lazy(() => import('./pages/customer/Welcome'))
@@ -54,10 +56,25 @@ function LoadingFallback() {
   )
 }
 
+function SessionRefresh() {
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const session = getSession()
+      if (!session) return
+      try {
+        await trpcMutate("login.refresh", {})
+      } catch {}
+    }, 9 * 60 * 1000) // each 9 minutes
+    return () => clearInterval(interval)
+  }, [])
+  return null
+}
+
 export default function App() {
   return (
     <QueryProvider>
       <Suspense fallback={<LoadingFallback />}>
+        <SessionRefresh />
         <Routes>
         {/* Customer App Routes */}
         <Route path="/" element={<Welcome />} />

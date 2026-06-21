@@ -3,6 +3,7 @@ import { MapPin, Clock, Navigation, User, Settings, List, BarChart3, Loader2, Pa
 import { trpc } from "@/providers/trpc";
 import { useDriverSession } from "@/hooks/useDeliveryData";
 import { useDriverEvents } from "@/hooks/useOrderEvents";
+import { useDriverNotification } from "@/hooks/useDriverNotification";
 import { useState, useEffect, useRef } from "react";
 
 function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -23,11 +24,12 @@ export default function DriverHome() {
   const [isOnline, setIsOnline] = useState(true);
 
   const utils = trpc.useUtils();
-  useDriverEvents(driverId || undefined);
+  const { notifyNewOrder } = useDriverNotification();
+  useDriverEvents(driverId || undefined, utils, notifyNewOrder);
 
   const { data: availableOrders, isLoading } = trpc.order.getAvailableForDriver.useQuery(
     undefined,
-    { enabled: !!driverId }
+    { enabled: !!driverId, refetchInterval: 15000 }
   );
 
   const { data: driverProfile } = trpc.driver.getById.useQuery(

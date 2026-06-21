@@ -1,5 +1,5 @@
 import { createTRPCReact } from "@trpc/react-query";
-import { httpLink } from "@trpc/client";
+import { httpLink, TRPCClientError } from "@trpc/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import superjson from "superjson";
 import type { AppRouter } from "../../api/router";
@@ -7,7 +7,41 @@ import type { ReactNode } from "react";
 
 export const trpc = createTRPCReact<AppRouter>();
 
-const queryClient = new QueryClient();
+function handleAuthError() {
+  if (window.location.pathname === "/login" || window.location.pathname === "/customer-login") return
+  fetch("/api/trpc/login.logout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+    credentials: "include",
+  }).catch(() => {})
+  localStorage.removeItem("qs_session")
+  localStorage.removeItem("merchant_user")
+  localStorage.removeItem("driver_user")
+  window.location.href = "/login"
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry(_failureCount, error) {
+        if (error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED") {
+          handleAuthError()
+          return false
+        }
+        return false
+      },
+    },
+    mutations: {
+      onError(error) {
+        if (error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED") {
+          handleAuthError()
+        }
+      },
+    },
+  },
+});
+
 const trpcClient = trpc.createClient({
   links: [
     httpLink({

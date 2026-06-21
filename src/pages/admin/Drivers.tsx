@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { trpcCall, trpcMutate } from "@/hooks/useDeliveryData";
 import PhoneInput from "@/components/PhoneInput";
+import AdminLayout from "@/components/AdminLayout";
 
 export default function AdminDrivers() {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ export default function AdminDrivers() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AdminLayout>
       <header className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -236,6 +237,6 @@ export default function AdminDrivers() {
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }

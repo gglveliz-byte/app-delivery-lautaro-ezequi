@@ -3,6 +3,7 @@ import { ArrowLeft, Star, Clock, Phone, MapPin, Plus, ShoppingCart } from "lucid
 import { useCommerce, useProductsByCommerce } from "@/hooks/useDeliveryData";
 import { useCart } from "@/hooks/useCart";
 import { useCommerceEvents } from "@/hooks/useOrderEvents";
+import { trpc } from "@/providers/trpc";
 
 export default function CommerceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -12,7 +13,8 @@ export default function CommerceDetail() {
   const { addItem, totalItems } = useCart();
 
   // Escuchar cambios de productos y órdenes en tiempo real
-  useCommerceEvents(Number(id));
+  const commerceUtils = trpc.useUtils();
+  useCommerceEvents(Number(id), commerceUtils);
 
   const products = allProducts.filter((p: any) => p.isAvailable === "yes");
 

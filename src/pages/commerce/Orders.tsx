@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  ArrowLeft, CheckCircle, XCircle, Package, ChevronDown,
+  ArrowLeft, CheckCircle, Package, ChevronDown,
 } from "lucide-react";
-import { useMerchantCommerceId, useCommerceOrders, useUpdateOrderStatus } from "@/hooks/useDeliveryData";
+import { useMerchantCommerceId, useCommerceOrders, useUpdateOrderStatus, useMarkCommerceReady } from "@/hooks/useDeliveryData";
 import { useCommerceEvents } from "@/hooks/useOrderEvents";
+import { trpc } from "@/providers/trpc";
+import CommerceLayout from "@/components/CommerceLayout";
 
 export default function CommerceOrders() {
   const navigate = useNavigate();
@@ -13,8 +15,18 @@ export default function CommerceOrders() {
 
   const { commerceId } = useMerchantCommerceId();
   const updateOrderStatus = useUpdateOrderStatus(commerceId || undefined);
+  const markCommerceReady = useMarkCommerceReady(commerceId || undefined);
   const { data: orders, loading } = useCommerceOrders(commerceId || 0);
-  useCommerceEvents(commerceId || undefined);
+  const commerceUtils = trpc.useUtils();
+  useCommerceEvents(commerceId || undefined, commerceUtils);
+
+  const handleMarkReady = async (orderId: number) => {
+    try {
+      await markCommerceReady.mutateAsync({ orderId, commerceId: commerceId! });
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleStatusUpdate = async (orderId: number, status: string) => {
     try {
@@ -24,15 +36,13 @@ export default function CommerceOrders() {
     }
   };
 
-  const filteredOrders = filter === "all" ? orders : orders.filter((o) => o.status === filter);
+  const filteredOrders = filter === "all" ? orders : orders.filter((o) => (o.myCommerceStatus || o.status) === filter);
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
       received: "bg-yellow-100 text-yellow-800",
-      accepted: "bg-blue-100 text-blue-800",
       preparing: "bg-indigo-100 text-indigo-800",
       ready_for_pickup: "bg-purple-100 text-purple-800",
-      driver_assigned: "bg-purple-100 text-purple-800",
       picked_up: "bg-orange-100 text-orange-800",
       on_the_way: "bg-orange-100 text-orange-800",
       delivered: "bg-green-100 text-green-800",
@@ -40,11 +50,9 @@ export default function CommerceOrders() {
     };
     const labels: Record<string, string> = {
       received: "Nuevo",
-      accepted: "Aceptado",
       preparing: "Preparando",
       ready_for_pickup: "Listo para recoger",
-      driver_assigned: "Con repartidor",
-      picked_up: "Recogido",
+      picked_up: "Retirado",
       on_the_way: "En camino",
       delivered: "Entregado",
       cancelled: "Cancelado",
@@ -57,7 +65,7 @@ export default function CommerceOrders() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <CommerceLayout>
       <header className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/commerce")} className="touch-target">
@@ -130,7 +138,7 @@ export default function CommerceOrders() {
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-bold text-[#2E7D32]">${parseFloat(order.total).toFixed(2)}</p>
-                      {statusBadge(order.status)}
+                      {statusBadge(order.myCommerceStatus || order.status)}
                     </div>
                   </div>
 
@@ -154,43 +162,56 @@ export default function CommerceOrders() {
                     </div>
                   )}
 
-                  {/* Actions */}
+                  {/* Actions - per-commerce status */}
                   <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
-                    {order.status === "received" && (
+                    {order.myCommerceStatus === "received" && (
                       <>
                         <button
-                          onClick={() => handleStatusUpdate(order.id, "accepted")}
-                          className="flex-1 h-10 bg-[#2E7D32] text-white text-sm font-medium rounded-lg hover:bg-[#1B5E20] flex items-center justify-center gap-1.5"
+                          onClick={() => handleStatusUpdate(order.id, "preparing")}
+                          className="flex-1 h-10 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-lg hover:bg-indigo-100 flex items-center justify-center gap-1.5"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          Aceptar
+                          Preparar
                         </button>
                         <button
                           onClick={() => handleStatusUpdate(order.id, "cancelled")}
                           className="flex-1 h-10 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 flex items-center justify-center gap-1.5"
                         >
-                          <XCircle className="w-4 h-4" />
+                          <Package className="w-4 h-4" />
                           Rechazar
                         </button>
                       </>
                     )}
-                    {order.status === "accepted" && (
+                    {order.myCommerceStatus === "preparing" && (
                       <button
-                        onClick={() => handleStatusUpdate(order.id, "preparing")}
-                        className="w-full h-10 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-lg hover:bg-indigo-100 flex items-center justify-center gap-1.5"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Empezar a preparar
-                      </button>
-                    )}
-                    {order.status === "preparing" && (
-                      <button
-                        onClick={() => handleStatusUpdate(order.id, "ready_for_pickup")}
+                        onClick={() => handleMarkReady(order.id)}
+                        disabled={markCommerceReady.isPending}
                         className="w-full h-10 bg-purple-50 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-100 flex items-center justify-center gap-1.5"
                       >
-                        <CheckCircle className="w-4 h-4" />
-                        Marcar como listo
+                        {markCommerceReady.isPending ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="30" strokeDashoffset="90"/></svg>
+                            Marcando...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            Marcar listo
+                          </>
+                        )}
                       </button>
+                    )}
+                    {order.myCommerceStatus === "ready_for_pickup" && (
+                      <span className="w-full h-10 bg-green-50 text-green-700 text-sm font-medium rounded-lg flex items-center justify-center gap-1.5">
+                        <CheckCircle className="w-4 h-4" />
+                        Listo - esperando repartidor
+                      </span>
+                    )}
+                    {order.myCommerceStatus === "picked_up" && (
+                      <span className="w-full h-10 bg-orange-50 text-orange-700 text-sm font-medium rounded-lg flex items-center justify-center gap-1.5">
+                        <Package className="w-4 h-4" />
+                        Recogido por repartidor
+                      </span>
                     )}
                   </div>
                 </div>
@@ -199,6 +220,6 @@ export default function CommerceOrders() {
           </div>
         )}
       </div>
-    </div>
+    </CommerceLayout>
   );
 }

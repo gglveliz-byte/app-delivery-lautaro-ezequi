@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { createRouter, publicQuery, driverQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { drivers, driverEarnings, orders, orderStatusHistory } from "@db/schema";
-import { eq, and, inArray, desc, sql } from "drizzle-orm";
+import { drivers, driverEarnings, orders, orderItems, orderStatusHistory, orderCommerceStatus } from "@db/schema";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import { emit } from "./events";
-import { verifyDriverRefreshToken, refreshDriverAccessToken, clearDriverCookies, setDriverCookies } from "./driver-auth";
+import { verifyDriverRefreshToken, clearDriverCookies, setDriverCookies } from "./driver-auth";
 
 export const driverRouter = createRouter({
   list: publicQuery.query(async () => {
@@ -65,6 +65,8 @@ export const driverRouter = createRouter({
         .set({ currentLat: input.lat, currentLng: input.lng })
         .where(eq(drivers.id, input.id));
 
+      emit(`driver:${input.id}`, { type: "location_update", lat: input.lat, lng: input.lng, ts: Date.now() });
+
       return { success: true };
     }),
 
@@ -111,12 +113,13 @@ export const driverRouter = createRouter({
           deliveryAddress: orders.deliveryAddress,
           customerPhone: orders.customerPhone,
           createdAt: orders.createdAt,
+          pickedUpCommerceIds: orders.pickedUpCommerceIds,
         })
         .from(orders)
         .where(
           and(
             eq(orders.driverId, input.id),
-            inArray(orders.status, ["driver_assigned", "preparing", "picked_up", "on_the_way"])
+            inArray(orders.status, ["ready_for_pickup", "picked_up", "on_the_way"])
           )
         )
         .orderBy(desc(orders.createdAt));
@@ -182,7 +185,7 @@ export const driverRouter = createRouter({
         const order = orderResult[0];
         if (!order) throw new Error("Pedido no encontrado");
         if (order.driverId) throw new Error("Pedido ya asignado");
-        if (!["accepted", "preparing", "ready_for_pickup"].includes(order.status)) {
+        if (!["preparing", "ready_for_pickup"].includes(order.status)) {
           throw new Error("Pedido no está disponible para aceptar");
         }
 
@@ -190,15 +193,15 @@ export const driverRouter = createRouter({
           .update(orders)
           .set({
             driverId: input.driverId,
-            status: "driver_assigned",
+            status: "ready_for_pickup",
             updatedAt: new Date()
           })
           .where(eq(orders.id, input.orderId));
 
         await tx.insert(orderStatusHistory).values({
           orderId: input.orderId,
-          status: "driver_assigned",
-          notes: "Conductor asignado",
+          status: "ready_for_pickup",
+          notes: "Repartidor asignado",
         });
 
         await tx.update(drivers).set({ status: "busy" }).where(eq(drivers.id, input.driverId));
@@ -206,9 +209,86 @@ export const driverRouter = createRouter({
         const updated = await tx.select().from(orders).where(eq(orders.id, input.orderId));
 
         // Emit SSE events to notify about order assignment
-        emit(`order:${input.orderId}`, { type: "status_update", status: "driver_assigned", driverId: input.driverId });
+        emit(`order:${input.orderId}`, { type: "status_update", status: "ready_for_pickup", driverId: input.driverId });
         emit(`driver:${input.driverId}`, { type: "order_assigned", orderId: input.orderId });
 
+        return updated[0];
+      });
+
+      return result;
+    }),
+
+  markCommercePickup: driverQuery
+    .input(z.object({ driverId: z.number(), orderId: z.number(), commerceId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+
+      const result = await db.transaction(async (tx) => {
+        const orderResult = await tx
+          .select()
+          .from(orders)
+          .where(eq(orders.id, input.orderId))
+          .for("update");
+        const order = orderResult[0];
+        if (!order) throw new Error("Pedido no encontrado");
+        if (order.driverId !== input.driverId) throw new Error("No tienes este pedido asignado");
+
+        // Check commerce status - must be ready_for_pickup
+        const commerceStatus = await tx
+          .select()
+          .from(orderCommerceStatus)
+          .where(and(eq(orderCommerceStatus.orderId, input.orderId), eq(orderCommerceStatus.commerceId, input.commerceId)));
+        if (commerceStatus.length === 0) throw new Error("Comercio no encontrado en este pedido");
+        const cs = commerceStatus[0].status;
+        if (cs !== "ready_for_pickup") {
+          if (cs === "picked_up") throw new Error("Este comercio ya fue marcado como recogido");
+          throw new Error("Este comercio aún no está listo para retirar");
+        }
+
+        const currentPicked = order.pickedUpCommerceIds || [];
+        if (currentPicked.includes(input.commerceId)) {
+          throw new Error("Este comercio ya fue marcado como recogido");
+        }
+
+        // Get all unique commerce IDs in this order
+        const orderItemsResult = await tx
+          .select({ commerceId: orderItems.commerceId })
+          .from(orderItems)
+          .where(eq(orderItems.orderId, input.orderId));
+        const allCommerceIds = [...new Set(orderItemsResult.map(i => i.commerceId))];
+
+        const newPicked = [...currentPicked, input.commerceId];
+        const allPicked = allCommerceIds.every(id => newPicked.includes(id));
+
+        // Update order commerce status to picked_up
+        await tx
+          .update(orderCommerceStatus)
+          .set({ status: "picked_up", updatedAt: new Date() })
+          .where(and(eq(orderCommerceStatus.orderId, input.orderId), eq(orderCommerceStatus.commerceId, input.commerceId)));
+
+        await tx
+          .update(orders)
+          .set({
+            pickedUpCommerceIds: newPicked,
+            status: allPicked ? "picked_up" : order.status,
+            updatedAt: new Date()
+          })
+          .where(eq(orders.id, input.orderId));
+
+        if (allPicked) {
+          await tx.insert(orderStatusHistory).values({
+            orderId: input.orderId,
+            status: "picked_up",
+            notes: "Todos los comercios recogidos",
+          });
+
+          emit(`order:${input.orderId}`, { type: "status_update", status: "picked_up", pickedUpCommerceIds: newPicked });
+        } else {
+          emit(`order:${input.orderId}`, { type: "commerce_pickup", commerceId: input.commerceId, pickedUpCommerceIds: newPicked });
+        }
+        emit(`driver:${input.driverId}`, { type: "commerce_pickup", orderId: input.orderId, commerceId: input.commerceId, pickedUpCommerceIds: newPicked });
+
+        const updated = await tx.select().from(orders).where(eq(orders.id, input.orderId));
         return updated[0];
       });
 

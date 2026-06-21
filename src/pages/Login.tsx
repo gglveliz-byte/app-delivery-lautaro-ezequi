@@ -33,12 +33,6 @@ export default function Login() {
 
       if (result?.success) {
         const role = result.role;
-        await fetch("/api/trpc/customer.logout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-          credentials: "include",
-        });
         if (result.user && role === "merchant") {
           localStorage.setItem("merchant_user", JSON.stringify(result.user));
         }

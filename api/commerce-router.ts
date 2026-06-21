@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { createRouter, publicQuery, merchantQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { commerces, products, orderItems, orders } from "@db/schema";
+import { commerces, products, orderItems, orders, orderCommerceStatus, drivers, orderStatusHistory } from "@db/schema";
 import { eq, and, like } from "drizzle-orm";
+import { emit } from "./events";
 
 export const commerceRouter = createRouter({
   list: publicQuery.query(async () => {
@@ -142,5 +143,67 @@ export const commerceRouter = createRouter({
         topProducts,
         dailySales,
       };
+    }),
+
+  markReady: merchantQuery
+    .input(z.object({ orderId: z.number(), commerceId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+
+      // Verify the commerce owns items in this order
+      const orderItemsResult = await db
+        .select()
+        .from(orderItems)
+        .where(and(eq(orderItems.orderId, input.orderId), eq(orderItems.commerceId, input.commerceId)));
+
+      if (orderItemsResult.length === 0) {
+        throw new Error("Este comercio no tiene items en este pedido");
+      }
+
+      // Update the commerce status to ready_for_pickup
+      const result = await db.transaction(async (tx) => {
+        await tx
+          .update(orderCommerceStatus)
+          .set({ status: "ready_for_pickup", updatedAt: new Date() })
+          .where(and(eq(orderCommerceStatus.orderId, input.orderId), eq(orderCommerceStatus.commerceId, input.commerceId)));
+
+        // Check if all commerces for this order are ready
+        const allStatuses = await tx
+          .select()
+          .from(orderCommerceStatus)
+          .where(eq(orderCommerceStatus.orderId, input.orderId));
+
+        const allReady = allStatuses.every(s => s.status === "ready_for_pickup");
+
+        if (allReady) {
+          // Update order status to ready_for_pickup
+          await tx
+            .update(orders)
+            .set({ status: "ready_for_pickup", updatedAt: new Date() })
+            .where(eq(orders.id, input.orderId));
+
+          await tx.insert(orderStatusHistory).values({
+            orderId: input.orderId,
+            status: "ready_for_pickup",
+            notes: "Todos los comercios listos para retirar",
+          });
+
+          // Notify online drivers
+          const onlineDrivers = await tx.select({ id: drivers.id }).from(drivers).where(eq(drivers.status, "online"));
+          onlineDrivers.forEach((driver) => {
+            emit(`driver:${driver.id}`, { type: "new_available", orderId: input.orderId });
+          });
+
+          emit(`order:${input.orderId}`, { type: "status_update", status: "ready_for_pickup" });
+        }
+
+        // Emit commerce ready event
+        emit(`commerce:${input.commerceId}`, { type: "commerce_ready", orderId: input.orderId });
+        emit(`order:${input.orderId}`, { type: "commerce_ready", commerceId: input.commerceId });
+
+        return { allReady };
+      });
+
+      return result;
     }),
 });

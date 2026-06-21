@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, merchantQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { orders, orderItems, orderStatusHistory, products, drivers, commerces, customers, driverEarnings } from "@db/schema";
+import { orders, orderItems, orderStatusHistory, products, drivers, commerces, customers, driverEarnings, orderCommerceStatus } from "@db/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { emit } from "./events";
 
@@ -85,8 +85,17 @@ export const orderRouter = createRouter({
           notes: "Pedido recibido",
         });
 
-        // Emit SSE events to notify commerces about new order
+        // Create per-commerce status rows (preparing by default)
         const commerceIds = [...new Set(itemsData.map(i => i.commerceId))];
+        for (const cId of commerceIds) {
+          await tx.insert(orderCommerceStatus).values({
+            orderId,
+            commerceId: cId,
+            status: "preparing",
+          });
+        }
+
+        // Emit SSE events to notify commerces about new order
         commerceIds.forEach(cId => {
           emit(`commerce:${cId}`, { type: "new_order", orderId });
         });
@@ -109,6 +118,12 @@ export const orderRouter = createRouter({
         .from(orderStatusHistory)
         .where(eq(orderStatusHistory.orderId, input.id))
         .orderBy(orderStatusHistory.createdAt);
+
+      // Get per-commerce status
+      const commerceStatuses = await db
+        .select()
+        .from(orderCommerceStatus)
+        .where(eq(orderCommerceStatus.orderId, input.id));
 
       let driver = null;
       if (order[0].driverId) {
@@ -133,7 +148,13 @@ export const orderRouter = createRouter({
             .where(sql`${commerces.id} IN (${sql.join(commerceIds, sql`, `)})`)
         : [];
 
-      return { ...order[0], items, history, driver, commerces: commerceList };
+      // Attach commerce status to each commerce
+      const commercesWithStatus = commerceList.map(c => ({
+        ...c,
+        status: commerceStatuses.find(cs => cs.commerceId === c.id)?.status || "preparing",
+      }));
+
+      return { ...order[0], items, history, driver, commerces: commercesWithStatus, commerceStatuses };
     }),
 
   getByCustomer: publicQuery
@@ -184,7 +205,7 @@ export const orderRouter = createRouter({
       .leftJoin(commerces, eq(commerces.id, orderItems.commerceId))
       .where(
         and(
-          inArray(orders.status, ["accepted", "preparing", "ready_for_pickup"]),
+          inArray(orders.status, ["ready_for_pickup"]),
           sql`${orders.driverId} IS NULL`
         )
       )
@@ -264,13 +285,75 @@ export const orderRouter = createRouter({
         return updated[0];
       });
 
-      // If order was accepted/preparing/ready_for_pickup, notify all online drivers about available order
-      if (input.status === "accepted" || input.status === "preparing" || input.status === "ready_for_pickup") {
+      // Notify online drivers when order is ready for pickup
+      if (input.status === "ready_for_pickup") {
         const onlineDrivers = await db.select({ id: drivers.id }).from(drivers).where(eq(drivers.status, "online"));
         onlineDrivers.forEach((driver) => {
           emit(`driver:${driver.id}`, { type: "new_available", orderId: input.id });
         });
       }
+
+      return result;
+    }),
+
+  markCommerceReady: merchantQuery
+    .input(z.object({ orderId: z.number(), commerceId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+
+      // Verify the commerce owns items in this order
+      const orderItemsResult = await db
+        .select()
+        .from(orderItems)
+        .where(and(eq(orderItems.orderId, input.orderId), eq(orderItems.commerceId, input.commerceId)));
+
+      if (orderItemsResult.length === 0) {
+        throw new Error("Este comercio no tiene items en este pedido");
+      }
+
+      // Update the commerce status to ready_for_pickup
+      const result = await db.transaction(async (tx) => {
+        await tx
+          .update(orderCommerceStatus)
+          .set({ status: "ready_for_pickup", updatedAt: new Date() })
+          .where(and(eq(orderCommerceStatus.orderId, input.orderId), eq(orderCommerceStatus.commerceId, input.commerceId)));
+
+        // Check if all commerces for this order are ready
+        const allStatuses = await tx
+          .select()
+          .from(orderCommerceStatus)
+          .where(eq(orderCommerceStatus.orderId, input.orderId));
+
+        const allReady = allStatuses.every(s => s.status === "ready_for_pickup");
+
+        if (allReady) {
+          // Update order status to ready_for_pickup
+          await tx
+            .update(orders)
+            .set({ status: "ready_for_pickup", updatedAt: new Date() })
+            .where(eq(orders.id, input.orderId));
+
+          await tx.insert(orderStatusHistory).values({
+            orderId: input.orderId,
+            status: "ready_for_pickup",
+            notes: "Todos los comercios listos para retirar",
+          });
+
+          // Notify online drivers
+          const onlineDrivers = await tx.select({ id: drivers.id }).from(drivers).where(eq(drivers.status, "online"));
+          onlineDrivers.forEach((driver) => {
+            emit(`driver:${driver.id}`, { type: "new_available", orderId: input.orderId });
+          });
+
+          emit(`order:${input.orderId}`, { type: "status_update", status: "ready_for_pickup" });
+        }
+
+        // Emit commerce ready event
+        emit(`commerce:${input.commerceId}`, { type: "commerce_ready", orderId: input.orderId });
+        emit(`order:${input.orderId}`, { type: "commerce_ready", commerceId: input.commerceId });
+
+        return { allReady };
+      });
 
       return result;
     }),
@@ -287,6 +370,13 @@ export const orderRouter = createRouter({
 
       const orderIds = [...new Set(items.map(i => i.orderId))];
       const result = [];
+
+      // Get per-commerce statuses for these orders
+      const commerceStatuses = await db
+        .select()
+        .from(orderCommerceStatus)
+        .where(and(eq(orderCommerceStatus.commerceId, input.commerceId), inArray(orderCommerceStatus.orderId, orderIds)));
+
       for (const oid of orderIds) {
         const order = await db.select().from(orders).where(eq(orders.id, oid));
         if (order.length > 0) {
@@ -298,7 +388,9 @@ export const orderRouter = createRouter({
               customerName = `${cust[0].firstName} ${cust[0].lastName}`;
             }
           }
-          result.push({ ...order[0], items: orderItemsForOrder, customerName });
+          // Find this commerce's status for this order
+          const myCommerceStatus = commerceStatuses.find(cs => cs.orderId === oid && cs.commerceId === input.commerceId);
+          result.push({ ...order[0], items: orderItemsForOrder, customerName, myCommerceStatus: myCommerceStatus?.status || "preparing" });
         }
       }
       return result;

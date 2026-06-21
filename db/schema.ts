@@ -25,6 +25,12 @@ export const orderStatusEnum = pgEnum("order_status", [
   "delivered",
   "cancelled",
 ]);
+
+export const orderCommerceStatusEnum = pgEnum("order_commerce_status_enum", [
+  "preparing",
+  "ready_for_pickup",
+  "picked_up",
+]);
 export const paymentMethodEnum = pgEnum("payment_method", ["cash", "transfer"]);
 export const senderTypeEnum = pgEnum("sender_type", ["customer", "commerce", "driver"]);
 export const featuredEnum = pgEnum("featured_status", ["yes", "no"]);
@@ -145,6 +151,7 @@ export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   customerId: bigint("customer_id", { mode: "number" }).notNull().references(() => customers.id),
   driverId: bigint("driver_id", { mode: "number" }).references(() => drivers.id, { onDelete: "set null" }),
+  pickedUpCommerceIds: integer("picked_up_commerce_ids").array().default([]).notNull(),
   status: orderStatusEnum("status").default("received").notNull(),
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
   deliveryFee: numeric("delivery_fee", { precision: 10, scale: 2 }).default("2.50"),
@@ -176,6 +183,9 @@ export const orderItems = pgTable("order_items", {
 
 export type OrderItem = typeof orderItems.$inferSelect;
 
+export type OrderCommerceStatus = typeof orderCommerceStatus.$inferSelect;
+export type InsertOrderCommerceStatus = typeof orderCommerceStatus.$inferInsert;
+
 // ============= ORDER STATUS HISTORY =============
 export const orderStatusHistory = pgTable("order_status_history", {
   id: serial("id").primaryKey(),
@@ -183,6 +193,15 @@ export const orderStatusHistory = pgTable("order_status_history", {
   status: varchar("status", { length: 50 }).notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ============= ORDER COMMERCE STATUS =============
+export const orderCommerceStatus = pgTable("order_commerce_status", {
+  id: serial("id").primaryKey(),
+  orderId: bigint("order_id", { mode: "number" }).notNull().references(() => orders.id, { onDelete: "cascade" }),
+  commerceId: bigint("commerce_id", { mode: "number" }).notNull().references(() => commerces.id, { onDelete: "cascade" }),
+  status: orderCommerceStatusEnum("status").default("preparing").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // ============= CHAT MESSAGES =============

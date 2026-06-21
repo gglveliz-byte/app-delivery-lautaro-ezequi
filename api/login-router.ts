@@ -5,9 +5,10 @@ import { users, drivers, commerces } from "@db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { env } from "./lib/env";
-import { setAdminCookie, clearAdminCookie } from "./admin-auth";
-import { setDriverCookies, clearDriverCookies } from "./driver-auth";
-import { setMerchantCookie, clearMerchantCookie } from "./merchant-auth";
+import { setAdminCookie, clearAdminCookie, verifyAdminRefreshToken } from "./admin-auth";
+import { setDriverCookies, clearDriverCookies, verifyDriverRefreshToken } from "./driver-auth";
+import { setMerchantCookie, clearMerchantCookie, verifyMerchantRefreshToken } from "./merchant-auth";
+import { clearCustomerCookies, setCustomerCookies, verifyRefreshToken } from "./customer-auth";
 
 export async function seedAdminUser() {
   if (!env.adminEmail || !env.adminPassword) return;
@@ -103,5 +104,81 @@ export const loginRouter = createRouter({
   seedAdmin: publicQuery.mutation(async () => {
     await seedAdminUser();
     return { success: true };
+  }),
+
+  checkAuth: publicQuery.query(async ({ ctx }) => {
+    if (ctx.admin) {
+      return { authenticated: true, role: "admin", user: { id: ctx.admin.id, name: ctx.admin.name, email: ctx.admin.email, role: "admin" } };
+    }
+    if (ctx.merchant) {
+      return { authenticated: true, role: "merchant", user: { id: ctx.merchant.id, name: ctx.merchant.name, email: ctx.merchant.email, role: "merchant" } };
+    }
+    if (ctx.driver) {
+      return { authenticated: true, role: "driver", user: { id: ctx.driver.id, name: ctx.driver.name, phone: ctx.driver.phone, role: "driver" } };
+    }
+    if (ctx.customer) {
+      return { authenticated: true, role: "customer", user: { id: ctx.customer.id, firstName: ctx.customer.firstName, lastName: ctx.customer.lastName, phone: ctx.customer.phone, role: "customer" } };
+    }
+    return { authenticated: false, role: null, user: null };
+  }),
+
+  logout: publicQuery.mutation(async ({ ctx }) => {
+    clearAdminCookie(ctx.resHeaders);
+    clearDriverCookies(ctx.resHeaders);
+    clearMerchantCookie(ctx.resHeaders);
+    clearCustomerCookies(ctx.resHeaders);
+    return { success: true };
+  }),
+
+  refresh: publicQuery.mutation(async ({ ctx }) => {
+    const raw = ctx.req.headers.get("cookie") || "";
+    const cookies = Object.fromEntries(
+      raw.split(";").filter(Boolean).map(c => {
+        const [k, ...v] = c.trim().split("=");
+        return [decodeURIComponent(k), decodeURIComponent(v.join("="))];
+      })
+    );
+
+    // Try admin refresh
+    const adminRefresh = cookies["quickgo_admin_refresh"];
+    if (adminRefresh) {
+      const userId = await verifyAdminRefreshToken(adminRefresh);
+      if (userId) {
+        await setAdminCookie(ctx.resHeaders, ctx.req.headers, userId);
+        return { success: true, role: "admin" };
+      }
+    }
+
+    // Try driver refresh
+    const driverRefresh = cookies["quickgo_driver_refresh"];
+    if (driverRefresh) {
+      const driverId = await verifyDriverRefreshToken(driverRefresh);
+      if (driverId) {
+        await setDriverCookies(ctx.resHeaders, ctx.req.headers, driverId);
+        return { success: true, role: "driver" };
+      }
+    }
+
+    // Try merchant refresh
+    const merchantRefresh = cookies["quickgo_merchant_refresh"];
+    if (merchantRefresh) {
+      const userId = await verifyMerchantRefreshToken(merchantRefresh);
+      if (userId) {
+        await setMerchantCookie(ctx.resHeaders, ctx.req.headers, userId);
+        return { success: true, role: "merchant" };
+      }
+    }
+
+    // Try customer refresh
+    const customerRefresh = cookies["refresh_token"];
+    if (customerRefresh) {
+      const customerId = await verifyRefreshToken(customerRefresh);
+      if (customerId) {
+        await setCustomerCookies(ctx.resHeaders, ctx.req.headers, customerId);
+        return { success: true, role: "customer" };
+      }
+    }
+
+    return { success: false, role: null };
   }),
 });

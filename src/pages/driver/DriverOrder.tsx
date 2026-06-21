@@ -3,25 +3,30 @@ import { useParams, useNavigate } from "react-router";
 import {
   ArrowLeft,
   Phone,
-  MapPin,
-  MessageCircle,
   Navigation,
   Package,
   CheckCircle,
   Loader2,
+  Store,
+  Home,
+  Check,
 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { useOrderEvents } from "@/hooks/useOrderEvents";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import ChatBubble from "@/components/ChatBubble";
+
+if (typeof document !== "undefined") {
+  const style = document.createElement("style");
+  style.textContent = `@keyframes driverPulse { 0% { box-shadow: 0 3px 12px rgba(46,125,50,0.4); } 50% { box-shadow: 0 3px 20px rgba(46,125,50,0.7); } 100% { box-shadow: 0 3px 12px rgba(46,125,50,0.4); } }`;
+  document.head.appendChild(style);
+}
 
 const orderSteps = [
-  { key: "driver_assigned", label: "Camino al comercio" },
-  { key: "preparing", label: "En comercio" },
-  { key: "ready_for_pickup", label: "Listo para recoger" },
+  { key: "ready_for_pickup", label: "Retirar del local" },
   { key: "picked_up", label: "Camino al cliente" },
-  { key: "on_the_way", label: "En camino" },
-  { key: "delivered", label: "Entregado" },
+  { key: "on_the_way", label: "Entregado" },
 ];
 
 export default function DriverOrder() {
@@ -29,6 +34,7 @@ export default function DriverOrder() {
   const navigate = useNavigate();
   const [driverId, setDriverId] = useState<number | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     const session = localStorage.getItem("driver_user");
@@ -47,54 +53,108 @@ export default function DriverOrder() {
     { enabled: !!id }
   );
 
-  // Escuchar cambios del pedido en tiempo real
-  useOrderEvents(Number(id));
-
   const utils = trpc.useUtils();
+  useOrderEvents(Number(id), utils);
 
-  // Declarar mutation hook FUERA de funciones async
-  const updateStatusMutation = trpc.order.updateStatus.useMutation();
+  const updateStatusMutation = trpc.order.updateStatus.useMutation({
+    onSuccess: () => utils.order.getById.invalidate({ id: Number(id) }),
+  });
+  const acceptOrderMutation = trpc.driver.acceptOrder.useMutation({
+    onSuccess: () => utils.order.getById.invalidate({ id: Number(id) }),
+  });
+  const markCommercePickupMutation = trpc.driver.markCommercePickup.useMutation({
+    onSuccess: () => {
+      utils.order.getById.invalidate({ id: Number(id) });
+      utils.driver.getActiveOrders.invalidate({ id: driverId! });
+    },
+  });
+
+  const allCommerceIds: number[] = order?.items ? [...new Set(order.items.map((i: any) => i.commerceId as number))] : [];
+  const pickedUpCommerceIds: number[] = (order as any)?.pickedUpCommerceIds || [];
+  const allPickedUp = allCommerceIds.length > 0 && allCommerceIds.every((id) => pickedUpCommerceIds.includes(id));
+
+  // Per-commerce status from order.commerces (includes status field: preparing | ready_for_pickup | picked_up)
+  const getCommerceStatus = (commerce: any) => commerce?.status || "preparing";
+
+  // Geocode delivery address
+  useEffect(() => {
+    if (!order?.deliveryAddress || destCoords) return;
+    const q = encodeURIComponent(order.deliveryAddress);
+    fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&accept-language=es`, {
+      headers: { "User-Agent": "YALlega-App/1.0" },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.length > 0) {
+          setDestCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+        }
+      })
+      .catch(() => {});
+  }, [order?.deliveryAddress]);
 
   const getCurrentStep = (status: string) => {
-    const stepIndex = orderSteps.findIndex((s) => s.key === status);
-    return stepIndex >= 0 ? stepIndex : 0;
+    if (status === "ready_for_pickup") return 0;
+    if (status === "picked_up") return 1;
+    if (status === "on_the_way") return 1;
+    if (status === "delivered") return 2;
+    return -1;
   };
 
-  const currentStep = order ? getCurrentStep(order.status) : 0;
+  const currentStep = order ? getCurrentStep(order.status) : -1;
   const delivered = order?.status === "delivered";
+  const isAssigned = order?.driverId === driverId;
+
+  const handleAcceptOrder = async () => {
+    if (!id || !driverId) return;
+    await acceptOrderMutation.mutateAsync({
+      driverId,
+      orderId: Number(id),
+    });
+    utils.order.getById.invalidate({ id: Number(id) });
+  };
+
+  const handleMarkCommercePickup = async (commerceId: number) => {
+    if (!id || !driverId) return;
+    await markCommercePickupMutation.mutateAsync({
+      driverId,
+      orderId: Number(id),
+      commerceId,
+    });
+  };
 
   const handleNextStep = async () => {
     if (!id || !order) return;
 
-    const nextStatus = getNextStatus(order.status);
-    if (!nextStatus) return;
-
-    await updateStatusMutation.mutateAsync({
-      id: Number(id),
-      status: nextStatus as any,
-      driverId: driverId || undefined
-    });
-
+    if (order.status === "picked_up") {
+      await updateStatusMutation.mutateAsync({
+        id: Number(id),
+        status: "on_the_way",
+        driverId: driverId || undefined,
+      });
+    } else if (order.status === "on_the_way") {
+      await updateStatusMutation.mutateAsync({
+        id: Number(id),
+        status: "delivered",
+        driverId: driverId || undefined,
+      });
+    }
     utils.order.getById.invalidate({ id: Number(id) });
   };
 
-  const getNextStatus = (current: string) => {
-    const transitions: Record<string, string> = {
-      driver_assigned: "preparing",
-      preparing: "ready_for_pickup",
-      ready_for_pickup: "picked_up",
-      picked_up: "on_the_way",
-      on_the_way: "delivered",
-    };
-    return transitions[current];
-  };
+  // Auto-redirect to /driver after 3s on delivery
+  useEffect(() => {
+    if (delivered) {
+      const timer = setTimeout(() => navigate("/driver"), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [delivered, navigate]);
 
   const openRoute = () => {
     const address = encodeURIComponent(order?.deliveryAddress || "");
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${address}`, "_blank");
   };
 
-  // Initialize map and markers
+  // Initialize map
   useEffect(() => {
     if (!order || mapRef.current) return;
 
@@ -106,22 +166,40 @@ export default function DriverOrder() {
       attributionControl: false,
     }).setView([-33.45, -70.65], 13);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(newMap);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19,
+    }).addTo(newMap);
 
     newMap.whenReady(() => {
-      const newMarkers: L.Marker[] = [];
+      const markers: L.Marker[] = [];
+      const bounds = L.latLngBounds([]);
 
-      // Commerce marker
-      if (order.commerces?.[0]?.lat && order.commerces?.[0]?.lng) {
-        const lat = parseFloat(order.commerces[0].lat);
-        const lng = parseFloat(order.commerces[0].lng);
-        const marker = L.marker([lat, lng], {
-          icon: L.divIcon({
-            className: "",
-            html: `<div style="width:30px;height:30px;background:#2E7D32;border-radius:50%;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M15 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M5 18H3V6a1 1 0 0 1 1-1h10l3 5h2a3 3 0 0 1 3 3v5h-2"/><path d="M9 18h6"/><circle cx="18" cy="10" r="1"/></svg></div>`,
-          })
-        }).addTo(newMap);
-        newMarkers.push(marker);
+      // All commerce markers
+      const commerceCoords: [number, number][] = [];
+      if (order.commerces) {
+        for (const c of order.commerces) {
+          if (c.lat && c.lng) {
+            const lat = parseFloat(c.lat);
+            const lng = parseFloat(c.lng);
+            const isPicked = pickedUpCommerceIds.includes(c.id);
+            const cStatus = getCommerceStatus(c);
+            const isReady = cStatus === "ready_for_pickup";
+            commerceCoords.push([lat, lng]);
+            const marker = L.marker([lat, lng], {
+              icon: L.divIcon({
+                className: "",
+                html: `<div style="display:flex;flex-direction:column;align-items:center;">
+                  <div style="width:36px;height:36px;background:${isPicked ? "linear-gradient(135deg,#43A047,#2E7D32)" : isReady ? "linear-gradient(135deg,#2E7D32,#1B5E20)" : "linear-gradient(135deg,#9E9E9E,#757575)"};border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+                    ${isPicked ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : isReady ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>'}
+                  </div>
+                  <div style="margin-top:2px;background:${isPicked ? "#43A047" : isReady ? "#2E7D32" : "#9E9E9E"};color:white;font-size:7px;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid white;white-space:nowrap;">${c.name || "Comercio"}</div>
+                </div>`,
+              }),
+            }).addTo(newMap);
+            markers.push(marker);
+            bounds.extend([lat, lng]);
+          }
+        }
       }
 
       // Driver marker
@@ -131,16 +209,46 @@ export default function DriverOrder() {
         const marker = L.marker([lat, lng], {
           icon: L.divIcon({
             className: "",
-            html: `<div style="width:30px;height:30px;background:#1565C0;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M15 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M5 18H3V6a1 1 0 0 1 1-1h10l3 5h2a3 3 0 0 1 3 3v5h-2"/><path d="M9 18h6"/></svg></div>`,
-          })
+            html: `<div style="width:36px;height:36px;background:linear-gradient(135deg,#1565C0,#0D47A1);border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(21,101,192,0.4);animation:driverPulse 2s infinite;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M15 18a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M5 18H3V6a1 1 0 0 1 1-1h10l3 5h2a3 3 0 0 1 3 3v5h-2"/><path d="M9 18h6"/></svg>
+            </div>`,
+          }),
         }).addTo(newMap);
-        newMarkers.push(marker);
+        markers.push(marker);
+        bounds.extend([lat, lng]);
       }
 
-      // Fit bounds
-      const group = new L.FeatureGroup(newMarkers);
-      if (group.getLayers().length > 0) {
-        newMap.fitBounds(group.getBounds().pad(0.2));
+      // Destination marker
+      if (destCoords) {
+        const marker = L.marker([destCoords.lat, destCoords.lng], {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="width:36px;height:36px;background:linear-gradient(135deg,#E53935,#C62828);border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              </div>
+              <div style="margin-top:2px;background:#E53935;color:white;font-size:7px;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid white;white-space:nowrap;">Cliente</div>
+            </div>`,
+          }),
+        }).addTo(newMap);
+        markers.push(marker);
+        bounds.extend([destCoords.lat, destCoords.lng]);
+      }
+
+      // Route polyline: through all commerces then to destination
+      const routePoints: [number, number][] = [];
+      if (commerceCoords.length > 0 && destCoords) {
+        routePoints.push(...commerceCoords, [destCoords.lat, destCoords.lng]);
+        L.polyline(routePoints, {
+          color: "#1565C0",
+          weight: 2.5,
+          opacity: 0.5,
+          dashArray: "8,8",
+        }).addTo(newMap);
+      }
+
+      if (markers.length > 0) {
+        newMap.fitBounds(bounds.pad(0.3));
       }
     });
 
@@ -150,7 +258,7 @@ export default function DriverOrder() {
       mapRef.current = null;
       newMap.remove();
     };
-  }, [order]);
+  }, [order, destCoords]);
 
   if (isLoading) {
     return (
@@ -177,12 +285,12 @@ export default function DriverOrder() {
         </button>
         <h1 className="text-xl font-bold text-white">Pedido #{id}</h1>
         <p className="text-white/70 text-sm mt-1">
-          {delivered ? "Entregado" : orderSteps[currentStep]?.label || order.status}
+          {delivered ? "Entregado" : currentStep >= 0 ? orderSteps[currentStep]?.label : order.status.replace(/_/g, " ")}
         </p>
       </div>
 
       {/* Map */}
-      <div id="driver-map" className="h-48 mx-4 -mt-3 rounded-xl" />
+      <div id="driver-map" className="h-52 mx-4 -mt-3 rounded-xl shadow-lg overflow-hidden" />
 
       {/* Order Info */}
       <div className="px-4 mt-4">
@@ -191,24 +299,24 @@ export default function DriverOrder() {
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Package className="w-5 h-5 text-[#2E7D32]" />
+                <Store className="w-5 h-5 text-[#2E7D32]" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-800">{order.commerces?.[0]?.name || "Comercio"}</p>
-                <p className="text-xs text-gray-500">{order.deliveryAddress.split(",")[0] || "Dirección de entrega"}</p>
-                <div className="flex gap-2 mt-1">
-                  <button
-                    onClick={() => navigate(`/driver/chat/${id}`)}
-                    className="text-xs text-[#2E7D32] flex items-center gap-0.5"
-                  >
-                    <MessageCircle className="w-3 h-3" /> Chat
-                  </button>
-                </div>
+                <p className="text-sm font-medium text-gray-800">
+                  {order.commerces?.length === 1
+                    ? order.commerces[0].name
+                    : `${order.commerces?.length || 0} comercios`}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {allCommerceIds.length > 0
+                    ? `Recogidos: ${pickedUpCommerceIds.length}/${allCommerceIds.length}`
+                    : "Comercios del pedido"}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <MapPin className="w-5 h-5 text-blue-600" />
+                <Home className="w-5 h-5 text-blue-600" />
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-800">Cliente: {order.customerPhone || "Teléfono no disponible"}</p>
@@ -217,18 +325,66 @@ export default function DriverOrder() {
                   <a href={`tel:${order.customerPhone || ""}`} className="text-xs text-blue-600 flex items-center gap-0.5">
                     <Phone className="w-3 h-3" /> Llamar
                   </a>
-                  <button
-                    onClick={() => navigate(`/driver/chat/${id}`)}
-                    className="text-xs text-blue-600 flex items-center gap-0.5"
-                  >
-                    <MessageCircle className="w-3 h-3" /> Chat
-                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Commerce Pickup Checklist — only when driver is assigned but not fully picked up */}
+      {isAssigned && !allPickedUp && !delivered && (
+        <div className="px-4 mt-4">
+          <div className="bg-white rounded-xl card-shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Recoger en comercios</h3>
+            <div className="space-y-2">
+              {order.commerces?.map((c: any) => {
+                const picked = pickedUpCommerceIds.includes(c.id);
+                const cStatus = getCommerceStatus(c);
+                const isReady = cStatus === "ready_for_pickup";
+                const isPreparing = cStatus === "preparing";
+                const statusLabel = isPreparing ? "Preparando" : isReady ? "Listo" : "Recogido";
+                const statusColor = isPreparing ? "text-indigo-700 bg-indigo-50" : isReady ? "text-purple-700 bg-purple-50" : "text-green-700 bg-green-50";
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-gray-50">
+                    <div className="flex items-center gap-2">
+                      <Store className="w-4 h-4 text-[#2E7D32]" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{c.name}</p>
+                        {c.address && <p className="text-xs text-gray-500">{c.address}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor}`}>{statusLabel}</span>
+                      {picked ? (
+                        <div className="flex items-center gap-1 text-green-700 text-xs font-medium">
+                          <Check className="w-4 h-4" />
+                          Recogido
+                        </div>
+                      ) : isReady ? (
+                        <button
+                          onClick={() => handleMarkCommercePickup(c.id)}
+                          disabled={markCommercePickupMutation.isPending}
+                          className="h-8 px-3 bg-[#2E7D32] text-white text-xs font-medium rounded-lg hover:bg-[#1B5E20] active:scale-[0.97] transition-all flex items-center gap-1 touch-target"
+                        >
+                          {markCommercePickupMutation.isPending ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Package className="w-3 h-3" />
+                          )}
+                          Recoger
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">Esperando preparación</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Progress Steps */}
       <div className="px-4 mt-4">
@@ -262,29 +418,51 @@ export default function DriverOrder() {
         </div>
       </div>
 
-      {/* Action Button */}
-      {!delivered && (
+      {/* Action Buttons */}
+      {!delivered && order.status === "ready_for_pickup" && !order.driverId && (
         <div className="px-4 mt-4 mb-6">
           <button
-            onClick={handleNextStep}
+            onClick={handleAcceptOrder}
+            disabled={acceptOrderMutation.isPending}
             className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] active:scale-[0.98] transition-all"
           >
-            {order.status === "driver_assigned" ? "Llegué al comercio" :
-             order.status === "preparing" ? "Esperando pedido..." :
-             order.status === "ready_for_pickup" ? "Pedido recogido" :
-             order.status === "picked_up" ? "En camino al cliente" :
-             "Completar entrega"}
+            {acceptOrderMutation.isPending ? "Aceptando..." : "Aceptar pedido"}
           </button>
         </div>
       )}
 
-      <button
-        onClick={openRoute}
-        className="mx-4 mb-2 h-10 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
-      >
-        <Navigation className="w-4 h-4 text-[#2E7D32]" />
-        Abrir en Google Maps
-      </button>
+      {!delivered && allPickedUp && (
+        <div className="px-4 mt-4 mb-6">
+          {order.status === "picked_up" && (
+            <button
+              onClick={handleNextStep}
+              className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] active:scale-[0.98] transition-all"
+            >
+              Camino al cliente
+            </button>
+          )}
+          {order.status === "on_the_way" && (
+            <button
+              onClick={handleNextStep}
+              className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] active:scale-[0.98] transition-all"
+            >
+              Completar entrega
+            </button>
+          )}
+        </div>
+      )}
+
+      {!delivered && (
+        <button
+          onClick={openRoute}
+          className="mx-4 mb-2 h-10 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+        >
+          <Navigation className="w-4 h-4 text-[#2E7D32]" />
+          Abrir en Google Maps
+        </button>
+      )}
+
+      {!delivered && <ChatBubble orderId={Number(id)} role="driver" />}
 
       {delivered && (
         <div className="px-4 mt-4 mb-6">
@@ -292,13 +470,8 @@ export default function DriverOrder() {
             <CheckCircle className="w-10 h-10 text-[#2E7D32] mx-auto mb-2" />
             <p className="text-sm font-medium text-gray-800">Entrega completada!</p>
             <p className="text-xs text-gray-500 mt-1">Ganancia: ${order.deliveryFee}</p>
+            <p className="text-xs text-gray-400 mt-2">Redirigiendo en 3 segundos...</p>
           </div>
-          <button
-            onClick={() => navigate("/driver")}
-            className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl mt-3 hover:bg-[#1B5E20] transition-all"
-          >
-            Volver a pedidos
-          </button>
         </div>
       )}
     </div>

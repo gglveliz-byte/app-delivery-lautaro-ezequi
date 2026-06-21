@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { trpc } from "@/providers/trpc";
 
 const MAX_RECONNECT_DELAY = 30000;
 const BASE_RECONNECT_DELAY = 1000;
@@ -15,18 +16,16 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
     
     eventSource = new EventSource(url);
 
-    // Listen for named "update" events from SSE
     eventSource.addEventListener("update", (event) => {
       try {
         const data = JSON.parse(event.data);
         onMessage(data);
-        reconnectAttempts = 0; // Reset on successful message
+        reconnectAttempts = 0;
       } catch (err) {
         console.error("[SSE] Error parsing event:", err);
       }
     });
 
-    // Also listen for unnamed messages (fallback)
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -47,7 +46,6 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
 
       if (isClosed) return;
 
-      // Exponential backoff with jitter
       const delay = Math.min(
         BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts) + Math.random() * 1000,
         MAX_RECONNECT_DELAY
@@ -77,74 +75,84 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
   };
 }
 
-export function useOrderEvents(orderId: number | undefined) {
+export function useOrderEvents(orderId: number | undefined, utils: ReturnType<typeof trpc.useUtils>) {
   const queryClient = useQueryClient();
-
   useEffect(() => {
     if (!orderId) return;
 
     const connection = createReconnectingEventSource(
       `/api/events/orders/${orderId}`,
       () => {
+        utils.order.getById.invalidate({ id: orderId });
+        utils.chat.getByOrder.invalidate({ orderId });
         queryClient.invalidateQueries({ queryKey: ["order.getById", orderId] });
         queryClient.invalidateQueries({ queryKey: ["chat.getByOrder", orderId] });
       }
     );
 
     return () => connection.close();
-  }, [orderId, queryClient]);
+  }, [orderId, utils, queryClient]);
 }
 
-export function useCommerceEvents(commerceId: number | undefined) {
+export function useCommerceEvents(commerceId: number | undefined, utils: ReturnType<typeof trpc.useUtils>) {
   const queryClient = useQueryClient();
-
   useEffect(() => {
     if (!commerceId) return;
 
     const connection = createReconnectingEventSource(
       `/api/events/commerce/${commerceId}`,
       () => {
+        utils.order.getCommerceOrders.invalidate({ commerceId });
+        utils.product.getByCommerce.invalidate({ commerceId });
         queryClient.invalidateQueries({ queryKey: ["order.getCommerceOrders", commerceId] });
         queryClient.invalidateQueries({ queryKey: ["product.getByCommerce", commerceId] });
       }
     );
 
     return () => connection.close();
-  }, [commerceId, queryClient]);
+  }, [commerceId, utils, queryClient]);
 }
 
-export function useDriverEvents(driverId: number | undefined) {
+export function useDriverEvents(
+  driverId: number | undefined,
+  utils: ReturnType<typeof trpc.useUtils>,
+  onNewOrder?: () => void
+) {
   const queryClient = useQueryClient();
-
   useEffect(() => {
     if (!driverId) return;
 
     const connection = createReconnectingEventSource(
       `/api/events/driver/${driverId}`,
-      () => {
+      (data) => {
+        if (data && typeof data === "object" && "type" in (data as any) && (data as any).type === "new_available") {
+          onNewOrder?.();
+        }
+        utils.order.getAvailableForDriver.invalidate();
+        utils.driver.getOrderHistory.invalidate({ id: driverId });
         queryClient.invalidateQueries({ queryKey: ["order.getAvailableForDriver"] });
-        queryClient.invalidateQueries({ queryKey: ["driver.getOrderHistory"] });
+        queryClient.invalidateQueries({ queryKey: ["driver.getOrderHistory", driverId] });
       }
     );
 
     return () => connection.close();
-  }, [driverId, queryClient]);
+  }, [driverId, utils, onNewOrder, queryClient]);
 }
 
-export function useProductEvents() {
+export function useProductEvents(utils: ReturnType<typeof trpc.useUtils>) {
   const queryClient = useQueryClient();
-
   useEffect(() => {
     const connection = createReconnectingEventSource(
       `/api/events/products`,
       () => {
+        utils.product.getFeatured.invalidate();
+        utils.product.list.invalidate();
+        utils.product.getByCommerce.invalidate();
         queryClient.invalidateQueries({ queryKey: ["product.getFeatured"] });
-        queryClient.invalidateQueries({ queryKey: ["product.list"] });
-        // Invalidar todas las queries de productos por comercio
-        queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "product.getByCommerce" });
+        queryClient.invalidateQueries({ queryKey: ["product.getByCommerce"] });
       }
     );
 
     return () => connection.close();
-  }, [queryClient]);
+  }, [utils, queryClient]);
 }

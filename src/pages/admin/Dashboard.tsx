@@ -2,19 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   LayoutDashboard, ShoppingBag, Store, Users, Truck,
-  TrendingUp, TrendingDown, ChevronRight, Settings, LogOut, Package,
+  TrendingUp, TrendingDown, ChevronRight, Settings, Package,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { trpcCall } from "@/hooks/useDeliveryData";
-
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/admin", active: true },
-  { icon: Store, label: "Comercios", path: "/admin/commerces", active: false },
-  { icon: Truck, label: "Repartidores", path: "/admin/drivers", active: false },
-  { icon: ShoppingBag, label: "Pedidos", path: "/admin/orders", active: false },
-  { icon: Package, label: "Productos", path: "/admin/products", active: false },
-  { icon: Settings, label: "Configuracion", path: "/admin/settings", active: false },
-];
+import AdminLayout from "@/components/AdminLayout";
 
 type Period = "day" | "week" | "month" | "year";
 
@@ -51,172 +43,139 @@ export default function AdminDashboard() {
   }, [period]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col fixed h-full">
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#2E7D32] rounded-lg flex items-center justify-center">
-              <Package className="w-4 h-4 text-white" />
+    <AdminLayout>
+      <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-800">Panel administrativo</h1>
+        <div className="w-8 h-8 bg-[#2E7D32] rounded-full flex items-center justify-center text-white text-sm font-medium">A</div>
+      </header>
+
+      <div className="p-4 lg:p-6">
+        {!kpi ? (
+          <div className="text-center py-12 text-gray-500">Cargando...</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+              <KpiCard icon={ShoppingBag} label="Pedidos totales" value={String(kpi.totalOrders)} color="bg-blue-100 text-blue-600" />
+              <KpiCard icon={Store} label="Comercios activos" value={`${kpi.activeCommerces}/${kpi.totalCommerces}`} color="bg-green-100 text-green-600" />
+              <KpiCard icon={Truck} label="Repartidores" value={`${kpi.onlineDrivers} online`} color="bg-orange-100 text-orange-600" />
+              <KpiCard icon={Users} label="Clientes" value={String(kpi.totalCustomers)} color="bg-purple-100 text-purple-600" />
             </div>
-            <span className="font-bold text-gray-800">YA LLEGA Admin</span>
-          </div>
-        </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${item.active ? "bg-[#2E7D32] text-white" : "text-gray-600 hover:bg-gray-100"}`}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-gray-100">
-          <button onClick={() => { localStorage.removeItem("qs_session"); navigate("/login"); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-            <LogOut className="w-5 h-5" />
-            Salir
-          </button>
-        </div>
-      </aside>
 
-      <main className="flex-1 lg:ml-64">
-        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">Panel administrativo</h1>
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-[#2E7D32] rounded-full flex items-center justify-center text-white text-sm font-medium">A</div>
-          </div>
-        </header>
-
-        <div className="p-6">
-          {!kpi ? (
-            <div className="text-center py-12 text-gray-500">Cargando...</div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-                <KpiCard icon={ShoppingBag} label="Pedidos totales" value={String(kpi.totalOrders)} color="bg-blue-100 text-blue-600" />
-                <KpiCard icon={Store} label="Comercios activos" value={`${kpi.activeCommerces}/${kpi.totalCommerces}`} color="bg-green-100 text-green-600" />
-                <KpiCard icon={Truck} label="Repartidores" value={`${kpi.onlineDrivers} online`} color="bg-orange-100 text-orange-600" />
-                <KpiCard icon={Users} label="Clientes" value={String(kpi.totalCustomers)} color="bg-purple-100 text-purple-600" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              <div className="lg:col-span-1 bg-white rounded-xl card-shadow p-5">
+                <p className="text-sm text-gray-500 mb-1">Facturacion total</p>
+                <p className="text-3xl font-bold text-gray-800">${kpi.totalRevenue}</p>
+                {growthPercent !== null && (
+                  <div className={`flex items-center gap-1 mt-1 text-xs ${growthPercent >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {growthPercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span>{growthPercent >= 0 ? "+" : ""}{growthPercent}% vs periodo anterior</span>
+                  </div>
+                )}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-sm text-gray-500 mb-1">Comisiones</p>
+                  <p className="text-xl font-bold text-[#2E7D32]">${kpi.totalCommission}</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                <div className="lg:col-span-1 bg-white rounded-xl card-shadow p-5">
-                  <p className="text-sm text-gray-500 mb-1">Facturacion total</p>
-                  <p className="text-3xl font-bold text-gray-800">${kpi.totalRevenue}</p>
-                  {growthPercent !== null && (
-                    <div className={`flex items-center gap-1 mt-1 text-xs ${growthPercent >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {growthPercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      <span>{growthPercent >= 0 ? "+" : ""}{growthPercent}% vs periodo anterior</span>
-                    </div>
+              <div className="lg:col-span-2 bg-white rounded-xl card-shadow p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-semibold text-gray-800">Ventas</h2>
+                  <div className="flex bg-gray-100 rounded-lg p-0.5">
+                    {(["day", "week", "month", "year"] as Period[]).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setPeriod(p)}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p ? "bg-white text-[#2E7D32] shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                      >
+                        {p === "day" ? "Dia" : p === "week" ? "Semana" : p === "month" ? "Mes" : "Ano"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="h-40">
+                  {salesData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={salesData.slice(-12)}>
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(-5)} />
+                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, "Ventas"]} />
+                        <Bar dataKey="sales" fill="#2E7D32" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 text-sm">Sin datos</div>
                   )}
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <p className="text-sm text-gray-500 mb-1">Comisiones</p>
-                    <p className="text-xl font-bold text-[#2E7D32]">${kpi.totalCommission}</p>
-                  </div>
                 </div>
+              </div>
+            </div>
 
-                <div className="lg:col-span-2 bg-white rounded-xl card-shadow p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-sm font-semibold text-gray-800">Ventas</h2>
-                    <div className="flex bg-gray-100 rounded-lg p-0.5">
-                      {(["day", "week", "month", "year"] as Period[]).map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => setPeriod(p)}
-                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p ? "bg-white text-[#2E7D32] shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                        >
-                          {p === "day" ? "Dia" : p === "week" ? "Semana" : p === "month" ? "Mes" : "Ano"}
-                        </button>
-                      ))}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              <div className="bg-white rounded-xl card-shadow p-5">
+                <h2 className="text-sm font-semibold text-gray-800 mb-4">Categorias mas vendidas</h2>
+                <div className="space-y-3">
+                  {topCategories.slice(0, 5).map((cat, i) => (
+                    <div key={cat.id} className="flex items-center gap-3">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i < 3 ? "bg-[#2E7D32] text-white" : "bg-gray-100 text-gray-600"}`}>
+                        {i + 1}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800">{cat.name}</p>
+                        <p className="text-xs text-gray-500">${cat.sales.toFixed(2)}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="h-40">
-                    {salesData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={salesData.slice(-12)}>
-                          <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(-5)} />
-                          <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                          <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, "Ventas"]} />
-                          <Bar dataKey="sales" fill="#2E7D32" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-gray-400 text-sm">Sin datos</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                <div className="bg-white rounded-xl card-shadow p-5">
-                  <h2 className="text-sm font-semibold text-gray-800 mb-4">Categorias mas vendidas</h2>
-                  <div className="space-y-3">
-                    {topCategories.slice(0, 5).map((cat, i) => (
-                      <div key={cat.id} className="flex items-center gap-3">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i < 3 ? "bg-[#2E7D32] text-white" : "bg-gray-100 text-gray-600"}`}>
-                          {i + 1}
-                        </span>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-800">{cat.name}</p>
-                          <p className="text-xs text-gray-500">${cat.sales.toFixed(2)}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {topCategories.length === 0 && <p className="text-sm text-gray-400">Sin datos</p>}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl card-shadow p-5">
-                  <h2 className="text-sm font-semibold text-gray-800 mb-4">Comercios mas vendidos</h2>
-                  <div className="space-y-3">
-                    {topCommerces.slice(0, 5).map((comm, i) => (
-                      <div key={comm.id} className="flex items-center gap-3">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i < 3 ? "bg-[#2E7D32] text-white" : "bg-gray-100 text-gray-600"}`}>
-                          {i + 1}
-                        </span>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-800">{comm.name}</p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span>{comm.orders} pedidos</span>
-                            <span>${comm.revenue.toFixed(2)}</span>
-                            <span>Ticket: ${(comm.revenue / comm.orders).toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {topCommerces.length === 0 && <p className="text-sm text-gray-400">Sin datos</p>}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl card-shadow">
-                <div className="p-4 border-b border-gray-100">
-                  <h2 className="text-sm font-semibold text-gray-800">Acceso rapido</h2>
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {[
-                    { label: "Gestionar comercios", path: "/admin/commerces", icon: Store },
-                    { label: "Control de repartidores", path: "/admin/drivers", icon: Truck },
-                    { label: "Ver todos los pedidos", path: "/admin/orders", icon: ShoppingBag },
-                    { label: "Configurar comisiones", path: "/admin/settings", icon: Settings },
-                  ].map((link) => (
-                    <button key={link.path} onClick={() => navigate(link.path)} className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <link.icon className="w-5 h-5 text-gray-400" />
-                        <span className="text-sm text-gray-700">{link.label}</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-gray-400" />
-                    </button>
                   ))}
+                  {topCategories.length === 0 && <p className="text-sm text-gray-400">Sin datos</p>}
                 </div>
               </div>
-            </>
-          )}
-        </div>
-      </main>
-    </div>
+
+              <div className="bg-white rounded-xl card-shadow p-5">
+                <h2 className="text-sm font-semibold text-gray-800 mb-4">Comercios mas vendidos</h2>
+                <div className="space-y-3">
+                  {topCommerces.slice(0, 5).map((comm, i) => (
+                    <div key={comm.id} className="flex items-center gap-3">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i < 3 ? "bg-[#2E7D32] text-white" : "bg-gray-100 text-gray-600"}`}>
+                        {i + 1}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800">{comm.name}</p>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span>{comm.orders} pedidos</span>
+                          <span>${comm.revenue.toFixed(2)}</span>
+                          <span>Ticket: ${(comm.revenue / comm.orders).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {topCommerces.length === 0 && <p className="text-sm text-gray-400">Sin datos</p>}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl card-shadow">
+              <div className="p-4 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-800">Acceso rapido</h2>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {[
+                  { label: "Gestionar comercios", path: "/admin/commerces", icon: Store },
+                  { label: "Control de repartidores", path: "/admin/drivers", icon: Truck },
+                  { label: "Ver todos los pedidos", path: "/admin/orders", icon: ShoppingBag },
+                  { label: "Configurar comisiones", path: "/admin/settings", icon: Settings },
+                ].map((link) => (
+                  <button key={link.path} onClick={() => navigate(link.path)} className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <link.icon className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm text-gray-700">{link.label}</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
 

@@ -4,6 +4,24 @@ import { useState, useEffect } from "react";
 
 const API_URL = "/api/trpc";
 
+function isAuthError(data: any): boolean {
+  return data?.error?.json?.code === "UNAUTHORIZED"
+}
+
+function handleAuthError() {
+  if (window.location.pathname === "/login" || window.location.pathname === "/customer-login") return
+  fetch("/api/trpc/login.logout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+    credentials: "include",
+  }).catch(() => {})
+  localStorage.removeItem("qs_session")
+  localStorage.removeItem("merchant_user")
+  localStorage.removeItem("driver_user")
+  window.location.href = "/login"
+}
+
 export async function trpcCall<T>(path: string, input?: Record<string, unknown>): Promise<T> {
   const serialized = input ? superjson.serialize(input) : superjson.serialize({});
   const url = `${API_URL}/${path}?input=${encodeURIComponent(JSON.stringify(serialized))}`;
@@ -11,12 +29,17 @@ export async function trpcCall<T>(path: string, input?: Record<string, unknown>)
     method: "GET",
     credentials: "include",
   });
+  const text = await res.text();
+  let data: any
+  try { data = JSON.parse(text) } catch { data = null }
+  if (isAuthError(data)) {
+    handleAuthError()
+    throw new Error("Sesión expirada")
+  }
   if (!res.ok) {
-    const text = await res.text();
     throw new Error(`HTTP ${res.status}: ${text}`);
   }
-  const data = await res.json();
-  return superjson.deserialize(data.result?.data);
+  return superjson.deserialize(data?.result?.data);
 }
 
 export async function trpcMutate<T>(path: string, input: Record<string, unknown>): Promise<T> {
@@ -27,12 +50,17 @@ export async function trpcMutate<T>(path: string, input: Record<string, unknown>
     body: JSON.stringify(serialized),
     credentials: "include",
   });
+  const text = await res.text();
+  let data: any
+  try { data = JSON.parse(text) } catch { data = null }
+  if (isAuthError(data)) {
+    handleAuthError()
+    throw new Error("Sesión expirada")
+  }
   if (!res.ok) {
-    const text = await res.text();
     throw new Error(`HTTP ${res.status}: ${text}`);
   }
-  const data = await res.json();
-  return superjson.deserialize(data.result?.data);
+  return superjson.deserialize(data?.result?.data);
 }
 
 // ========== CATEGORIES ==========
@@ -142,6 +170,7 @@ export function useOrder(id: number) {
     queryKey: ["order.getById", id],
     queryFn: () => trpcCall<any>("order.getById", { id }),
     enabled: Boolean(id),
+    refetchInterval: 5000,
   });
   return { data: query.data ?? null, loading: query.isLoading, refresh: query.refetch };
 }
@@ -160,6 +189,7 @@ export function useCommerceOrders(commerceId: number) {
     queryKey: ["order.getCommerceOrders", commerceId],
     queryFn: () => trpcCall<any[]>("order.getCommerceOrders", { commerceId }),
     enabled: Boolean(commerceId),
+    refetchInterval: 5000,
   });
   return { data: query.data ?? [], loading: query.isLoading };
 }
@@ -186,6 +216,17 @@ export function useUpdateOrderStatus(commerceId?: number) {
     onSuccess: (result: any) => {
       if (commerceId) queryClient.invalidateQueries({ queryKey: ["order.getCommerceOrders", commerceId] });
       if (result?.id) queryClient.invalidateQueries({ queryKey: ["order.getById", result.id] });
+    },
+  });
+}
+
+export function useMarkCommerceReady(commerceId?: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { orderId: number; commerceId: number }) => trpcMutate<any>("commerce.markReady", input),
+    onSuccess: (_result: any, input) => {
+      if (commerceId) queryClient.invalidateQueries({ queryKey: ["order.getCommerceOrders", commerceId] });
+      if (input.orderId) queryClient.invalidateQueries({ queryKey: ["order.getById", input.orderId] });
     },
   });
 }

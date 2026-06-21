@@ -41,6 +41,7 @@ export default function Cart() {
   const [loading, setLoading] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderId, setOrderId] = useState<number | null>(null);
+  const [showAddressModal, setShowAddressModal] = useState(false);
   const [addressMode, setAddressMode] = useState<"profile" | "custom" | "current">("profile");
   const [customAddress, setCustomAddress] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
@@ -76,16 +77,22 @@ export default function Cart() {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (!isAuthenticated || !customer) {
       navigate("/register");
       return;
     }
+    setShowAddressModal(true);
+  };
+
+  const confirmOrder = async () => {
+    if (!customer) return;
     if (items.length === 0) return;
 
     const deliveryAddress = getDeliveryAddress();
     if (!deliveryAddress.trim()) return;
 
+    setShowAddressModal(false);
     setLoading(true);
     try {
       const result: any = await createOrderMutation.mutateAsync({
@@ -158,17 +165,17 @@ export default function Cart() {
   }
 
   return (
-    <div className="mobile-container bg-gray-50 min-h-screen pb-32">
+    <div className="mobile-container bg-gray-50 h-dvh flex flex-col">
       {/* Header */}
-      <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-gray-100 sticky top-0 z-10">
+      <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-gray-100 shrink-0">
         <button onClick={() => navigate("/home")} className="touch-target">
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
         <h1 className="text-lg font-semibold text-gray-800">Carrito ({totalItems})</h1>
       </div>
 
-      {/* Multi-commerce cart items grouped by commerce */}
-      <div className="px-4 mt-4 space-y-4">
+      {/* Products list — scrollable */}
+      <div className="flex-1 overflow-y-auto px-4 mt-4 space-y-4 min-h-0">
         {Object.entries(grouped).map(([commerceId, group]) => (
           <div key={commerceId} className="bg-white rounded-xl card-shadow overflow-hidden">
             <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
@@ -219,109 +226,36 @@ export default function Cart() {
         ))}
       </div>
 
-      {/* Delivery Address */}
-      {customer && (
-        <div className="px-4 mt-4">
-          <div className="bg-white rounded-xl card-shadow p-4">
-            <h3 className="text-sm font-medium text-gray-800 mb-3">Dirección de entrega</h3>
-            <div className="grid grid-cols-3 gap-0 border border-gray-200 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setAddressMode("profile")}
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-center text-[11px] font-medium transition-all ${
-                  addressMode === "profile"
-                    ? "bg-[#2E7D32] text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                } ${addressMode !== "profile" && "border-r border-gray-200"}`}
-              >
-                <MapPin className="w-4 h-4" />
-                Mi dirección
-              </button>
-              <button
-                onClick={() => setAddressMode("custom")}
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-center text-[11px] font-medium transition-all ${
-                  addressMode === "custom"
-                    ? "bg-[#2E7D32] text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                } ${addressMode !== "custom" && "border-r border-gray-200"}`}
-              >
-                <Pencil className="w-4 h-4" />
-                Otra dirección
-              </button>
-              <button
-                onClick={handleGetLocation}
-                disabled={geoLoading}
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-center text-[11px] font-medium transition-all ${
-                  addressMode === "current"
-                    ? "bg-[#2E7D32] text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Navigation className="w-4 h-4" />
-                {geoLoading ? "Obteniendo..." : "Ubicación actual"}
-              </button>
-            </div>
-
-            <div className="mt-2.5 text-xs text-gray-600">
-              {addressMode === "profile" && (
-                <p className="truncate">{customer.address}</p>
-              )}
-              {addressMode === "custom" && (
-                <input
-                  type="text"
-                  value={customAddress}
-                  onChange={(e) => setCustomAddress(e.target.value)}
-                  placeholder="Escribí la dirección"
-                  className="w-full h-9 px-3 text-xs border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none"
-                  autoFocus
-                />
-              )}
-              {addressMode === "current" && (
-                <p className="truncate">{currentAddress || "Usá tu ubicación en tiempo real"}</p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-gray-100 text-sm text-gray-600">
-              <Phone className="w-4 h-4 text-[#2E7D32] flex-shrink-0" />
-              <span>{customer.phone}</span>
-            </div>
-          </div>
+      {/* Fixed bottom bar: payment + totals + confirm */}
+      <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4 z-50 space-y-3 shrink-0">
+        {/* Payment method inline */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPaymentMethod("cash")}
+            className={`flex-1 h-10 flex items-center justify-center gap-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
+              paymentMethod === "cash"
+                ? "border-[#2E7D32] bg-green-50 text-[#2E7D32]"
+                : "border-gray-200 text-gray-500"
+            }`}
+          >
+            <Banknote className="w-3.5 h-3.5" />
+            Efectivo
+          </button>
+          <button
+            onClick={() => setPaymentMethod("transfer")}
+            className={`flex-1 h-10 flex items-center justify-center gap-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
+              paymentMethod === "transfer"
+                ? "border-[#2E7D32] bg-green-50 text-[#2E7D32]"
+                : "border-gray-200 text-gray-500"
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            Transferencia
+          </button>
         </div>
-      )}
 
-      {/* Payment Method */}
-      <div className="px-4 mt-4">
-        <div className="bg-white rounded-xl card-shadow p-4">
-          <h3 className="text-sm font-medium text-gray-800 mb-3">Metodo de pago</h3>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setPaymentMethod("cash")}
-              className={`flex-1 h-12 flex items-center justify-center gap-2 rounded-xl border-2 text-sm font-medium transition-all ${
-                paymentMethod === "cash"
-                  ? "border-[#2E7D32] bg-green-50 text-[#2E7D32]"
-                  : "border-gray-200 text-gray-600"
-              }`}
-            >
-              <Banknote className="w-4 h-4" />
-              Efectivo
-            </button>
-            <button
-              onClick={() => setPaymentMethod("transfer")}
-              className={`flex-1 h-12 flex items-center justify-center gap-2 rounded-xl border-2 text-sm font-medium transition-all ${
-                paymentMethod === "transfer"
-                  ? "border-[#2E7D32] bg-green-50 text-[#2E7D32]"
-                  : "border-gray-200 text-gray-600"
-              }`}
-            >
-              <CreditCard className="w-4 h-4" />
-              Transferencia
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Order Summary - Fixed Bottom */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-50" style={{ maxWidth: "480px", margin: "0 auto" }}>
-        <div className="space-y-1.5 mb-3">
+        {/* Totals */}
+        <div className="space-y-1">
           <div className="flex justify-between text-sm text-gray-600">
             <span>Subtotal</span>
             <span>${subtotal.toFixed(2)}</span>
@@ -339,6 +273,7 @@ export default function Cart() {
             <span className="text-[#2E7D32]">${total}</span>
           </div>
         </div>
+
         <button
           onClick={handleCheckout}
           disabled={loading}
@@ -347,6 +282,97 @@ export default function Cart() {
           {loading ? "Procesando..." : "Confirmar pedido"}
         </button>
       </div>
+
+      {/* Address modal */}
+      {showAddressModal && customer && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowAddressModal(false)}
+          />
+          <div className="relative bg-white w-full max-w-[480px] rounded-t-2xl sm:rounded-2xl p-5 animate-slide-up max-h-[80vh] overflow-y-auto">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <h2 className="text-base font-semibold text-gray-800 mb-4">Dirección de entrega</h2>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => setAddressMode("profile")}
+                className={`w-full flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                  addressMode === "profile"
+                    ? "border-[#2E7D32] bg-green-50"
+                    : "border-gray-100 bg-gray-50"
+                }`}
+              >
+                <MapPin className="w-5 h-5 text-[#2E7D32] mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800">Mi dirección</p>
+                  <p className="text-xs text-gray-500 truncate">{customer.address || "Sin dirección guardada"}</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setAddressMode("custom")}
+                className={`w-full flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                  addressMode === "custom"
+                    ? "border-[#2E7D32] bg-green-50"
+                    : "border-gray-100 bg-gray-50"
+                }`}
+              >
+                <Pencil className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800">Otra dirección</p>
+                  {addressMode === "custom" ? (
+                    <input
+                      type="text"
+                      value={customAddress}
+                      onChange={(e) => setCustomAddress(e.target.value)}
+                      placeholder="Escribí la dirección"
+                      className="w-full h-8 px-2.5 mt-1 text-xs border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-400">Ingresá una dirección manualmente</p>
+                  )}
+                </div>
+              </button>
+
+              <button
+                onClick={handleGetLocation}
+                disabled={geoLoading}
+                className={`w-full flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                  addressMode === "current"
+                    ? "border-[#2E7D32] bg-green-50"
+                    : "border-gray-100 bg-gray-50"
+                }`}
+              >
+                <Navigation className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800">
+                    {geoLoading ? "Obteniendo..." : "Ubicación actual"}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {currentAddress || "Usá tu ubicación en tiempo real"}
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 mt-4 p-3 bg-gray-50 rounded-xl text-sm text-gray-600">
+              <Phone className="w-4 h-4 text-[#2E7D32] flex-shrink-0" />
+              <span>{customer.phone}</span>
+            </div>
+
+            <button
+              onClick={confirmOrder}
+              disabled={loading || !getDeliveryAddress().trim()}
+              className="w-full h-12 mt-4 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] transition-all disabled:opacity-50 touch-target"
+            >
+              {loading ? "Procesando..." : "Confirmar pedido"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

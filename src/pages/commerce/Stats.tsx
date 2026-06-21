@@ -3,6 +3,7 @@ import {
   ArrowLeft, TrendingUp, ShoppingBag, DollarSign, Star,
 } from "lucide-react";
 import { useCommerceStats, useMerchantCommerceId } from "@/hooks/useDeliveryData";
+import CommerceLayout from "@/components/CommerceLayout";
 
 export default function CommerceStats() {
   const navigate = useNavigate();
@@ -12,24 +13,28 @@ export default function CommerceStats() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-[#2E7D32] border-t-transparent rounded-full" />
-      </div>
+      <CommerceLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin w-8 h-8 border-4 border-[#2E7D32] border-t-transparent rounded-full" />
+        </div>
+      </CommerceLayout>
     );
   }
 
   if (!stats) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-sm text-gray-500">No se pudieron cargar las estadísticas</p>
-      </div>
+      <CommerceLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <p className="text-sm text-gray-500">No se pudieron cargar las estadísticas</p>
+        </div>
+      </CommerceLayout>
     );
   }
 
   const maxSales = Math.max(...stats.dailySales.map((d: any) => d.sales), 1);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <CommerceLayout>
       <header className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/commerce")} className="touch-target">
@@ -110,6 +115,6 @@ export default function CommerceStats() {
           )}
         </div>
       </div>
-    </div>
+    </CommerceLayout>
   );
 }
