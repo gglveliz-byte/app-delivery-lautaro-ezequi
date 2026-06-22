@@ -184,7 +184,7 @@ function CommerceSearchCard({ commerce }: { commerce: any }) {
         src={commerce.logo}
         alt=""
         className="w-14 h-14 rounded-xl object-cover"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+        onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%2224%22 fill=%22%23f0fdf4%22/%3E%3Crect x=%2210%22 y=%2218%22 width=%2228%22 height=%2224%22 rx=%223%22 fill=%22%23dcfce7%22/%3E%3Cpath d=%22M6 18 L15 8 L33 8 L42 18%22 fill=%22none%22 stroke=%22%2386efac%22 stroke-width=%222.5%22 stroke-linecap=%22round%22/%3E%3Crect x=%2215%22 y=%2224%22 width=%227%22 height=%2212%22 rx=%221.5%22 fill=%22%2386efac%22/%3E%3Crect x=%2226%22 y=%2224%22 width=%227%22 height=%2212%22 rx=%221.5%22 fill=%22%2386efac%22/%3E%3C/svg%3E' }}
       />
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-gray-800 text-sm">{commerce.name}</h3>

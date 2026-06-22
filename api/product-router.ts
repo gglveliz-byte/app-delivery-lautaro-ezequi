@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, merchantQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { products, commerces } from "@db/schema";
 import { eq, like, and } from "drizzle-orm";
@@ -57,7 +57,7 @@ export const productRouter = createRouter({
       );
     }),
 
-  create: publicQuery
+  create: merchantQuery
     .input(
       z.object({
         commerceId: z.number(),
@@ -81,7 +81,7 @@ export const productRouter = createRouter({
       return result[0];
     }),
 
-  update: publicQuery
+  update: merchantQuery
     .input(
       z.object({
         id: z.number(),
@@ -98,11 +98,18 @@ export const productRouter = createRouter({
       const db = getDb();
       const { id, ...data } = input;
       
+      const updateData: Record<string, any> = {};
+      for (const [key, val] of Object.entries(data)) {
+        if (val !== undefined) updateData[key] = val;
+      }
+      
       // Obtener producto actual para conocer commerceId
       const existing = await db.select().from(products).where(eq(products.id, id));
       const commerceId = existing[0]?.commerceId;
       
-      await db.update(products).set(data).where(eq(products.id, id));
+      if (Object.keys(updateData).length > 0) {
+        await db.update(products).set(updateData).where(eq(products.id, id));
+      }
       const result = await db.select().from(products).where(eq(products.id, id));
       
       // Emitir eventos SSE
@@ -114,7 +121,7 @@ export const productRouter = createRouter({
       return result[0];
     }),
 
-  delete: publicQuery
+  delete: merchantQuery
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = getDb();

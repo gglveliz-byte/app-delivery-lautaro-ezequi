@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { createRouter, publicQuery, merchantQuery } from "./middleware";
+import { createRouter, publicQuery, customerQuery, merchantQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { orders, orderItems, orderStatusHistory, products, drivers, commerces, customers, driverEarnings, orderCommerceStatus } from "@db/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { emit } from "./events";
 
 export const orderRouter = createRouter({
-  create: publicQuery
+  create: customerQuery
     .input(
       z.object({
         customerId: z.number(),
@@ -25,7 +25,10 @@ export const orderRouter = createRouter({
         commission: z.string().default("0.00"),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      if (input.customerId !== ctx.customer!.id) {
+        throw new Error("No puedes crear pedidos para otro cliente");
+      }
       const db = getDb();
 
       let subtotal = 0;

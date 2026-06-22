@@ -23,11 +23,11 @@ export default function AdminSettings() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [settings, setSettings] = useState({
-    deliveryFee: "500",
-    commissionRate: "15",
-    minOrderAmount: "2000",
+    deliveryFee: "2.50",
+    commissionRate: "8.00",
+    minOrderAmount: "3.00",
     appName: "YA LLEGA",
-    supportPhone: "+54 9 11 1234-5678",
+    supportPhone: "555-HELP",
   });
   const settingsList = useSettings();
   const updateSetting = useUpdateSetting();
@@ -83,11 +83,8 @@ export default function AdminSettings() {
             : "Rango: todos los datos";
         doc.text(rangeText, 14, 26);
 
-        const rows: Record<string, unknown>[] = Array.isArray(data) ? data : [];
-        const headers =
-          rows.length > 0
-            ? Object.keys(rows[0])
-            : ["Sin datos"];
+        const rows: Record<string, unknown>[] = Array.isArray(data?.rows) ? data.rows : [];
+        const headers = Array.isArray(data?.columns) ? data.columns : (rows.length > 0 ? Object.keys(rows[0]) : ["Sin datos"]);
         const body = rows.map((row) =>
           headers.map((h) => {
             const val = (row as Record<string, unknown>)[h];
@@ -117,8 +114,8 @@ export default function AdminSettings() {
 
         doc.save(`reporte_${type}_${today}.pdf`);
       } else {
-        const rows: Record<string, unknown>[] = Array.isArray(data) ? data : [];
-        const ws = XLSX.utils.json_to_sheet(rows);
+        const excelRows: Record<string, unknown>[] = Array.isArray(data?.rows) ? data.rows : [];
+        const ws = XLSX.utils.json_to_sheet(excelRows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, type);
         XLSX.writeFile(wb, `reporte_${type}_${today}.xlsx`);

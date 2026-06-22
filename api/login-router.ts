@@ -29,7 +29,7 @@ export async function seedAdminUser() {
 export const loginRouter = createRouter({
   login: publicQuery
     .input(z.object({
-      email: z.string().optional(),
+      email: z.string().email().optional(),
       phone: z.string().optional(),
       password: z.string().min(1, "Contraseña requerida"),
     }))

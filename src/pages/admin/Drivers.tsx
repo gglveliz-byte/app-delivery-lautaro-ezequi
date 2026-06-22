@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
-  ArrowLeft, Star, Search, Bike, X, Plus,
+  ArrowLeft, Star, Search, Bike, X, Plus, Trash2,
 } from "lucide-react";
 import { trpcCall, trpcMutate } from "@/hooks/useDeliveryData";
 import PhoneInput from "@/components/PhoneInput";
@@ -42,6 +42,16 @@ export default function AdminDrivers() {
     setEditing(d);
     setForm({ name: d.name, phone: d.phone, password: "", vehicle: d.vehicle || "", licensePlate: d.licensePlate || "" });
     setShowForm(true);
+  };
+
+  const handleDeleteDriver = async (id: number, name: string) => {
+    if (!confirm(`Eliminar repartidor "${name}"?`)) return;
+    try {
+      await trpcMutate("admin.deleteDriver", { id });
+      setDriverList(driverList.filter(d => d.id !== id));
+    } catch (err: any) {
+      alert(err?.message || "Error al eliminar");
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -200,7 +210,12 @@ export default function AdminDrivers() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <button onClick={() => openEdit(d)} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors">Editar</button>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => openEdit(d)} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors">Editar</button>
+                            <button onClick={() => handleDeleteDriver(d.id, d.name)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="Eliminar">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

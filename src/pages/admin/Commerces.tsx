@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
-  ArrowLeft, Store, Star, Search, X, Plus, Eye, EyeOff,
+  ArrowLeft, Store, Star, Search, X, Plus, Eye, EyeOff, Trash2,
 } from "lucide-react";
 import { trpcCall, trpcMutate } from "@/hooks/useDeliveryData";
 import AdminLayout from "@/components/AdminLayout";
@@ -28,6 +28,16 @@ export default function AdminCommerces() {
   const filtered = commerceList.filter((c) =>
     c.name?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleDeleteCommerce = async (id: number, name: string) => {
+    if (!confirm(`Eliminar "${name}"? Se borraran sus productos y datos relacionados.`)) return;
+    try {
+      await trpcMutate("admin.deleteCommerce", { id });
+      setCommerceList(commerceList.filter(c => c.id !== id));
+    } catch (err: any) {
+      alert(err?.message || "Error al eliminar");
+    }
+  };
 
   const toggleStatus = async (id: number) => {
     try {
@@ -167,6 +177,9 @@ export default function AdminCommerces() {
                             </button>
                             <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50">
                               <span className="text-xs font-medium">Editar</span>
+                            </button>
+                            <button onClick={() => handleDeleteCommerce(c.id, c.name)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="Eliminar">
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>

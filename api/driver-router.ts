@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery, driverQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { drivers, driverEarnings, orders, orderItems, orderStatusHistory, orderCommerceStatus } from "@db/schema";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, ne, inArray, desc } from "drizzle-orm";
 import { emit } from "./events";
 import { verifyDriverRefreshToken, clearDriverCookies, setDriverCookies } from "./driver-auth";
 
@@ -187,6 +187,22 @@ export const driverRouter = createRouter({
         if (order.driverId) throw new Error("Pedido ya asignado");
         if (!["preparing", "ready_for_pickup"].includes(order.status)) {
           throw new Error("Pedido no está disponible para aceptar");
+        }
+
+        // Driver must not have any other active order
+        const activeOrders = await tx
+          .select({ id: orders.id })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.driverId, input.driverId),
+              ne(orders.status, "delivered"),
+              ne(orders.status, "cancelled"),
+            )
+          )
+          .limit(1);
+        if (activeOrders.length > 0) {
+          throw new Error("Ya tienes un pedido activo. Finalízalo antes de aceptar otro.");
         }
 
         await tx

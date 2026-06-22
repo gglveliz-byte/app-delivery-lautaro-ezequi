@@ -63,7 +63,13 @@ export const commerceRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const { id, ...data } = input;
-      await db.update(commerces).set(data).where(eq(commerces.id, id));
+      const updateData: Record<string, any> = {};
+      for (const [key, val] of Object.entries(data)) {
+        if (val !== undefined) updateData[key] = val;
+      }
+      if (Object.keys(updateData).length > 0) {
+        await db.update(commerces).set(updateData).where(eq(commerces.id, id));
+      }
       const result = await db.select().from(commerces).where(eq(commerces.id, id));
       return result[0];
     }),

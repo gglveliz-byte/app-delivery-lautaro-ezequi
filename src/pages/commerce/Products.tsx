@@ -116,7 +116,7 @@ export default function CommerceProducts() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {filtered.map((p) => (
                 <div key={p.id} className="bg-white rounded-xl card-shadow p-4 flex gap-3">
-                  <img src={p.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop"} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                  <img src={p.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop"} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%228%22 fill=%22%23fefce8%22/%3E%3Crect x=%2212%22 y=%2214%22 width=%2224%22 height=%2226%22 rx=%222%22 fill=%22%23fef9c3%22/%3E%3Crect x=%2212%22 y=%2214%22 width=%2224%22 height=%228%22 rx=%221%22 fill=%22%23fef08a%22/%3E%3Cline x1=%2212%22 y1=%2220%22 x2=%2236%22 y2=%2220%22 stroke=%22%23eab308%22 stroke-width=%221%22/%3E%3Crect x=%2220%22 y=%2226%22 width=%228%22 height=%2214%22 rx=%221%22 fill=%22%23fef08a%22/%3E%3C/svg%3E' }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
                       <div>
@@ -160,7 +160,7 @@ export default function CommerceProducts() {
               <input placeholder="Nombre" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" required />
               <textarea placeholder="Descripcion" value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 resize-none" />
               <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Precio" value={form.price} onChange={(e) => setForm({...form, price: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" required />
+                <input type="number" step="0.01" min="0" placeholder="Precio" value={form.price} onChange={(e) => setForm({...form, price: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" required />
                 <input placeholder="Categoria" value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" />
               </div>
               <div>
@@ -179,7 +179,7 @@ export default function CommerceProducts() {
                   </div>
                   {form.image && (
                     <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
-                      <img src={form.image} alt="preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }} />
+                      <img src={form.image} alt="preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%228%22 fill=%22%23fefce8%22/%3E%3Crect x=%2212%22 y=%2214%22 width=%2224%22 height=%2226%22 rx=%222%22 fill=%22%23fef9c3%22/%3E%3Crect x=%2212%22 y=%2214%22 width=%2224%22 height=%228%22 rx=%221%22 fill=%22%23fef08a%22/%3E%3Cline x1=%2212%22 y1=%2220%22 x2=%2236%22 y2=%2220%22 stroke=%22%23eab308%22 stroke-width=%221%22/%3E%3Crect x=%2220%22 y=%2226%22 width=%228%22 height=%2214%22 rx=%221%22 fill=%22%23fef08a%22/%3E%3C/svg%3E' }} />
                     </div>
                   )}
                 </div>

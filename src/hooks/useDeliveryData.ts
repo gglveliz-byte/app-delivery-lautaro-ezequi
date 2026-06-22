@@ -170,7 +170,8 @@ export function useOrder(id: number) {
     queryKey: ["order.getById", id],
     queryFn: () => trpcCall<any>("order.getById", { id }),
     enabled: Boolean(id),
-    refetchInterval: 5000,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
   });
   return { data: query.data ?? null, loading: query.isLoading, refresh: query.refetch };
 }
@@ -354,7 +355,7 @@ export function useUpdateSetting() {
 
 export function useGetAdminReports() {
   return useMutation({
-    mutationFn: (input: any) => trpcCall<any>("admin.getReports", input),
+    mutationFn: (input: any) => trpcMutate<any>("admin.getReports", input),
   });
 }
 

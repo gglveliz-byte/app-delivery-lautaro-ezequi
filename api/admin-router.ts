@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createRouter, adminQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { orders, orderItems, orderStatusHistory, commerces, drivers, customers, categories, appSettings, users } from "@db/schema";
-import { eq, sql, desc, and, gte, lte, inArray } from "drizzle-orm";
+import { orders, orderItems, orderStatusHistory, orderCommerceStatus, commerces, products, drivers, driverEarnings, customers, categories, appSettings, users } from "@db/schema";
+import { eq, sql, desc, and, ne, gte, lte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { verifyAdminRefreshToken, setAdminCookie } from "./admin-auth";
 
@@ -182,40 +182,88 @@ export const adminRouter = createRouter({
         endDate: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const db = getDb();
+      const dateFrom = input.startDate ? new Date(input.startDate) : undefined;
+      const dateTo = input.endDate ? new Date(input.endDate + "T23:59:59") : undefined;
 
-      const conditions = [];
-      if (input.startDate) {
-        conditions.push(gte(orders.createdAt, new Date(input.startDate)));
+      const withDate = dateFrom || dateTo
+        ? and(dateFrom ? gte(orders.createdAt, dateFrom) : undefined, dateTo ? lte(orders.createdAt, dateTo) : undefined)
+        : undefined;
+
+      if (input.type === "sales") {
+        const all = await db.select({
+          date: sql<string>`${orders.createdAt}::date`,
+          orders: sql<number>`count(*)`,
+          revenue: sql<string>`sum(${orders.total})`,
+          commission: sql<string>`sum(${orders.commission})`,
+        }).from(orders).where(withDate).groupBy(sql`${orders.createdAt}::date`).orderBy(sql`${orders.createdAt}::date`);
+        return { type: "sales", generatedAt: new Date().toISOString(), columns: ["Fecha", "Pedidos", "Ingresos", "Comisiones"], rows: all.map(r => ({ Fecha: r.date, Pedidos: r.orders, Ingresos: parseFloat(r.revenue || "0").toFixed(2), Comisiones: parseFloat(r.commission || "0").toFixed(2) })) };
       }
-      if (input.endDate) {
-        conditions.push(lte(orders.createdAt, new Date(input.endDate + "T23:59:59")));
+
+      if (input.type === "orders") {
+        const all = await db.select().from(orders).where(withDate).orderBy(desc(orders.createdAt));
+        return { type: "orders", generatedAt: new Date().toISOString(), columns: ["ID", "Estado", "Total", "Metodo Pago", "Direccion", "Telefono", "Fecha"], rows: all.map(r => ({ ID: r.id, Estado: r.status, Total: parseFloat(r.total).toFixed(2), "Metodo Pago": r.paymentMethod, Direccion: r.deliveryAddress, Telefono: r.customerPhone || "-", Fecha: r.createdAt?.toISOString().split("T")[0] })) };
       }
 
-      const filteredOrders = conditions.length > 0
-        ? await db.select().from(orders).where(and(...conditions))
-        : await db.select().from(orders);
+      if (input.type === "commerces") {
+        const items = dateFrom || dateTo
+          ? await db.select({
+            commerceId: orderItems.commerceId,
+            orders: sql<number>`count(distinct ${orderItems.orderId})`,
+            revenue: sql<string>`sum(${orderItems.total})`,
+          }).from(orderItems).innerJoin(orders, eq(orderItems.orderId, orders.id)).where(withDate).groupBy(orderItems.commerceId)
+          : await db.select({
+            commerceId: orderItems.commerceId,
+            orders: sql<number>`count(distinct ${orderItems.orderId})`,
+            revenue: sql<string>`sum(${orderItems.total})`,
+          }).from(orderItems).groupBy(orderItems.commerceId);
+        const comms = await db.select({ id: commerces.id, name: commerces.name, status: commerces.status }).from(commerces);
+        const map = new Map(comms.map(c => [c.id, c]));
+        return { type: "commerces", generatedAt: new Date().toISOString(), columns: ["Comercio", "Pedidos", "Ingresos", "Estado"], rows: items.map(r => { const c = map.get(r.commerceId); return { Comercio: c?.name || "-", Pedidos: r.orders, Ingresos: parseFloat(r.revenue || "0").toFixed(2), Estado: c?.status || "-" }; }) };
+      }
 
-      const orderIds = filteredOrders.map(o => o.id);
-      const filteredOrderItems = orderIds.length > 0
-        ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-        : [];
+      if (input.type === "drivers") {
+        const revDriverId = sql<number>`${orders.driverId}`;
+        const stats = dateFrom || dateTo
+          ? await db.select({ driverId: revDriverId, deliveries: sql<number>`count(*)` }).from(orders).where(and(eq(orders.status, "delivered"), withDate)).groupBy(revDriverId)
+          : await db.select({ driverId: revDriverId, deliveries: sql<number>`count(*)` }).from(orders).where(eq(orders.status, "delivered")).groupBy(revDriverId);
+        const d = await db.select({ id: drivers.id, name: drivers.name, phone: drivers.phone, rating: drivers.rating, totalEarnings: drivers.totalEarnings }).from(drivers);
+        const statsMap = new Map(stats.map(s => [s.driverId, s.deliveries]));
+        return { type: "drivers", generatedAt: new Date().toISOString(), columns: ["Repartidor", "Telefono", "Entregas", "Ganancias", "Calif."], rows: d.map(r => ({ Repartidor: r.name, Telefono: r.phone, Entregas: statsMap.get(r.id) || 0, Ganancias: parseFloat(r.totalEarnings || "0").toFixed(2), "Calif.": r.rating || "4.5" })) };
+      }
 
-      const allCommerces = await db.select().from(commerces);
-      const allDrivers = await db.select().from(drivers);
+      if (input.type === "earnings") {
+        const e = await db.select({
+          driverId: driverEarnings.driverId,
+          orderId: driverEarnings.orderId,
+          amount: driverEarnings.amount,
+          type: driverEarnings.type,
+          date: driverEarnings.date,
+        }).from(driverEarnings).orderBy(desc(driverEarnings.date));
+        const d = await db.select({ id: drivers.id, name: drivers.name }).from(drivers);
+        const dMap = new Map(d.map(r => [r.id, r.name]));
+        return { type: "earnings", generatedAt: new Date().toISOString(), columns: ["Repartidor", "Pedido ID", "Monto", "Tipo", "Fecha"], rows: e.map(r => ({ Repartidor: dMap.get(r.driverId) || "-", "Pedido ID": r.orderId, Monto: parseFloat(r.amount || "0").toFixed(2), Tipo: r.type === "delivery_fee" ? "Envio" : r.type === "tip" ? "Propina" : "Bono", Fecha: r.date })) };
+      }
 
-      return {
-        type: input.type,
-        generatedAt: new Date().toISOString(),
-        totalOrders: filteredOrders.length,
-        totalRevenue: filteredOrders.reduce((a, o) => a + parseFloat(o.total || "0"), 0),
-        totalCommission: filteredOrders.reduce((a, o) => a + parseFloat(o.commission || "0"), 0),
-        orders: filteredOrders,
-        items: filteredOrderItems,
-        commerces: allCommerces,
-        drivers: allDrivers,
-      };
+      if (input.type === "commissions") {
+        const all = await db.select({
+          orderId: orders.id,
+          commission: orders.commission,
+          total: orders.total,
+          createdAt: orders.createdAt,
+        }).from(orders).where(withDate).orderBy(desc(orders.createdAt));
+        const items = await db.select({ orderId: orderItems.orderId, commerceId: orderItems.commerceId }).from(orderItems);
+        const comms = await db.select({ id: commerces.id, name: commerces.name }).from(commerces);
+        const cMap = new Map(comms.map(c => [c.id, c.name]));
+        const orderCommerces = new Map<number, string>();
+        for (const it of items) {
+          if (!orderCommerces.has(it.orderId)) orderCommerces.set(it.orderId, cMap.get(it.commerceId) || "-");
+        }
+        return { type: "commissions", generatedAt: new Date().toISOString(), columns: ["Comercio", "Pedido ID", "Comision", "Total Pedido", "Fecha"], rows: all.map(r => ({ Comercio: orderCommerces.get(r.orderId) || "-", "Pedido ID": r.orderId, Comision: parseFloat(r.commission || "0").toFixed(2), "Total Pedido": parseFloat(r.total || "0").toFixed(2), Fecha: r.createdAt?.toISOString().split("T")[0] })) };
+      }
+
+      return { type: input.type, generatedAt: new Date().toISOString(), columns: [], rows: [] };
     }),
 
   listCommerces: adminQuery.query(async () => {
@@ -227,7 +275,7 @@ export const adminRouter = createRouter({
     .input(z.object({
       id: z.number(),
       name: z.string().optional(),
-      status: z.string().optional(),
+      status: z.enum(["active","inactive","suspended","pending"]).optional(),
       isOpen: z.string().optional(),
       commissionRate: z.string().optional(),
       deliveryTime: z.string().optional(),
@@ -470,5 +518,62 @@ export const adminRouter = createRouter({
       });
 
       return result;
+    }),
+
+  deleteCommerce: adminQuery
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.transaction(async (tx) => {
+        const affectedOrderIds = (
+          await tx
+            .select({ orderId: orderItems.orderId })
+            .from(orderItems)
+            .where(eq(orderItems.commerceId, input.id))
+            .groupBy(orderItems.orderId)
+        ).map(r => r.orderId);
+
+        if (affectedOrderIds.length > 0) {
+          const mixedOrderIds = (
+            await tx
+              .select({ orderId: orderItems.orderId })
+              .from(orderItems)
+              .where(
+                and(
+                  inArray(orderItems.orderId, affectedOrderIds),
+                  ne(orderItems.commerceId, input.id)
+                )
+              )
+              .groupBy(orderItems.orderId)
+          ).map(r => r.orderId);
+
+          if (mixedOrderIds.length > 0) {
+            throw new Error(
+              `No se puede eliminar: hay ${mixedOrderIds.length} pedido(s) que mezclan productos de este comercio con otros. Cancelá esos pedidos primero.`
+            );
+          }
+
+          for (const oid of affectedOrderIds) {
+            await tx.delete(orders).where(eq(orders.id, oid));
+          }
+        }
+
+        await tx.delete(orderCommerceStatus).where(eq(orderCommerceStatus.commerceId, input.id));
+        await tx.delete(products).where(eq(products.commerceId, input.id));
+        await tx.delete(commerces).where(eq(commerces.id, input.id));
+      });
+      return { success: true };
+    }),
+
+  deleteDriver: adminQuery
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.transaction(async (tx) => {
+        await tx.update(orders).set({ driverId: null }).where(eq(orders.driverId, input.id));
+        await tx.delete(driverEarnings).where(eq(driverEarnings.driverId, input.id));
+        await tx.delete(drivers).where(eq(drivers.id, input.id));
+      });
+      return { success: true };
     }),
 });
