@@ -111,19 +111,20 @@ export const commerceRouter = createRouter({
         const dayKey = new Date(order.createdAt).toLocaleDateString("es-ES", { weekday: "short" });
 
         if (order.status === "delivered") {
-          totalSales += parseFloat(order.total);
-          totalOrders++;
-          if (!dailyMap[dayKey]) dailyMap[dayKey] = 0;
-          dailyMap[dayKey] += parseFloat(order.total);
-
           const items = orderItemsForCommerce.filter(i => i.orderId === oid);
+          let orderCommerceTotal = 0;
           for (const item of items) {
+            orderCommerceTotal += parseFloat(item.total);
             if (!productSales[item.productId]) {
               productSales[item.productId] = { name: item.productName, qty: 0, revenue: 0 };
             }
             productSales[item.productId].qty += item.quantity;
             productSales[item.productId].revenue += parseFloat(item.total);
           }
+          totalSales += orderCommerceTotal;
+          totalOrders++;
+          if (!dailyMap[dayKey]) dailyMap[dayKey] = 0;
+          dailyMap[dayKey] += orderCommerceTotal;
         }
       }
 
