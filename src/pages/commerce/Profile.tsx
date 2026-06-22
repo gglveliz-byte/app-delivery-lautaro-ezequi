@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
-  ArrowLeft, Camera, Store, Mail,
+  ArrowLeft, Camera, Store, Mail, FileText, Clock, LocateFixed, MapPin, Phone, Save,
 } from "lucide-react";
 import { safeImage } from "@/lib/imageUtils";
 import { useCommerce, useMerchantCommerceId, useToggleCommerceStatus, useUpdateCommerceProfile } from "@/hooks/useDeliveryData";
