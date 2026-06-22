@@ -4,6 +4,7 @@ import { useCommerce, useProductsByCommerce } from "@/hooks/useDeliveryData";
 import { useCart } from "@/hooks/useCart";
 import { useCommerceEvents } from "@/hooks/useOrderEvents";
 import { trpc } from "@/providers/trpc";
+import { safeImage } from "@/lib/imageUtils";
 
 export default function CommerceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -45,7 +46,7 @@ export default function CommerceDetail() {
     <div className="mobile-container bg-gray-50 min-h-screen pb-20">
       {/* Cover */}
       <div className="relative h-44 bg-gray-200">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${commerce.coverImage})` }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${safeImage(commerce.coverImage, "cover")})` }} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <button
           onClick={() => navigate("/home")}

@@ -23,6 +23,7 @@ import { useCustomerSession } from "@/hooks/useCustomerSession";
 import { useCategories, useCommerces, useFeaturedProducts, useProductsByCommerce } from "@/hooks/useDeliveryData";
 import { useProductEvents } from "@/hooks/useOrderEvents";
 import { trpc } from "@/providers/trpc";
+import { safeImage } from "@/lib/imageUtils";
 
 const iconMap: Record<string, React.ReactNode> = {
   UtensilsCrossed: <UtensilsCrossed className="w-5 h-5" />,
@@ -336,7 +337,7 @@ function CommerceCard({ commerce }: { commerce: any }) {
     <div className="bg-white rounded-xl card-shadow overflow-hidden">
       <div
         className="h-28 bg-gray-100 bg-cover bg-center cursor-pointer active:scale-[0.98] transition-transform"
-        style={{ backgroundImage: `url(${commerce.coverImage})` }}
+        style={{ backgroundImage: `url(${safeImage(commerce.coverImage, "cover")})` }}
         onClick={() => navigate(`/commerce/${commerce.id}`)}
       >
         <div className="flex justify-between items-start p-2">
@@ -351,7 +352,7 @@ function CommerceCard({ commerce }: { commerce: any }) {
       </div>
       <div className="p-3 cursor-pointer" onClick={() => navigate(`/commerce/${commerce.id}`)}>
         <div className="flex items-start gap-3">
-          <img src={commerce.logo} alt="" className="w-10 h-10 rounded-full object-cover -mt-7 border-2 border-white shadow-sm" onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%2224%22 fill=%22%23f0fdf4%22/%3E%3Crect x=%2210%22 y=%2218%22 width=%2228%22 height=%2224%22 rx=%223%22 fill=%22%23dcfce7%22/%3E%3Cpath d=%22M6 18 L15 8 L33 8 L42 18%22 fill=%22none%22 stroke=%22%2386efac%22 stroke-width=%222.5%22 stroke-linecap=%22round%22/%3E%3Crect x=%2215%22 y=%2224%22 width=%227%22 height=%2212%22 rx=%221.5%22 fill=%22%2386efac%22/%3E%3Crect x=%2226%22 y=%2224%22 width=%227%22 height=%2212%22 rx=%221.5%22 fill=%22%2386efac%22/%3E%3C/svg%3E' }} />
+          <img src={safeImage(commerce.logo, "logo")} alt="" className="w-10 h-10 rounded-full object-cover -mt-7 border-2 border-white shadow-sm" onError={(e) => { (e.target as HTMLImageElement).src = safeImage(null, "logo") }} />
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-gray-800 text-sm truncate">{commerce.name}</h3>
             <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
