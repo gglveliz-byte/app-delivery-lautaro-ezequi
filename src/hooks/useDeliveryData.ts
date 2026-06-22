@@ -93,17 +93,39 @@ export function useCommerce(id: number) {
 export function useMerchantCommerceId() {
   const storedUser = localStorage.getItem("merchant_user");
   const merchantUser = storedUser ? JSON.parse(storedUser) : null;
-  const [commerceId, setCommerceId] = useState<number | null>(merchantUser?.commerceId || null);
+  const cachedId: number | null =
+    typeof merchantUser?.commerceId === "number" && merchantUser.commerceId > 0
+      ? merchantUser.commerceId
+      : null;
+  const [commerceId, setCommerceId] = useState<number | null>(cachedId);
 
-  const query = useQuery({
+  // Primary lookup: ask the server which commerce belongs to this merchant (by merchantUserId)
+  const meQuery = useQuery({
+    queryKey: ["commerce.me"],
+    queryFn: () => trpcCall<any>("commerce.me"),
+    enabled: !commerceId && Boolean(merchantUser),
+  });
+
+  // Fallback: name-search (keeps legacy commerces that don't yet have merchantUserId set)
+  const searchQuery = useQuery({
     queryKey: ["commerce.search", merchantUser?.name],
     queryFn: () => trpcCall<any[]>("commerce.search", { query: merchantUser?.name || "" }),
-    enabled: !commerceId && Boolean(merchantUser?.name),
+    enabled: !commerceId && !meQuery.data && Boolean(merchantUser?.name),
   });
 
   useEffect(() => {
-    const results = query.data ?? [];
-    if (results.length > 0 && !commerceId) {
+    if (commerceId) return;
+    const fromMe = meQuery.data;
+    if (fromMe?.id) {
+      setCommerceId(fromMe.id);
+      if (merchantUser) {
+        merchantUser.commerceId = fromMe.id;
+        localStorage.setItem("merchant_user", JSON.stringify(merchantUser));
+      }
+      return;
+    }
+    const results = searchQuery.data ?? [];
+    if (results.length > 0) {
       const id = results[0].id;
       setCommerceId(id);
       if (merchantUser) {
@@ -111,9 +133,12 @@ export function useMerchantCommerceId() {
         localStorage.setItem("merchant_user", JSON.stringify(merchantUser));
       }
     }
-  }, [query.data, commerceId, merchantUser]);
+  }, [meQuery.data, searchQuery.data, commerceId, merchantUser]);
 
-  return { commerceId, loading: query.isLoading };
+  return {
+    commerceId,
+    loading: meQuery.isLoading || searchQuery.isLoading,
+  };
 }
 
 // ========== PRODUCTS ==========
@@ -137,7 +162,12 @@ export function useProductsByCommerce(commerceId: number) {
 export function useCreateProduct(commerceId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: any) => trpcMutate<any>("product.create", { commerceId, ...input }),
+    mutationFn: (input: any) => {
+      if (!commerceId || commerceId < 1) {
+        return Promise.reject(new Error("Sin comercio asignado"));
+      }
+      return trpcMutate<any>("product.create", { commerceId, ...input });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product.getByCommerce", commerceId] });
       queryClient.invalidateQueries({ queryKey: ["product.getFeatured"] });
@@ -148,7 +178,12 @@ export function useCreateProduct(commerceId: number) {
 export function useUpdateProduct(commerceId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: any) => trpcMutate<any>("product.update", input),
+    mutationFn: (input: any) => {
+      if (!commerceId || commerceId < 1) {
+        return Promise.reject(new Error("Sin comercio asignado"));
+      }
+      return trpcMutate<any>("product.update", input);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product.getByCommerce", commerceId] });
       queryClient.invalidateQueries({ queryKey: ["product.getFeatured"] });
@@ -159,7 +194,12 @@ export function useUpdateProduct(commerceId: number) {
 export function useDeleteProduct(commerceId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: any) => trpcMutate<any>("product.delete", input),
+    mutationFn: (input: any) => {
+      if (!commerceId || commerceId < 1) {
+        return Promise.reject(new Error("Sin comercio asignado"));
+      }
+      return trpcMutate<any>("product.delete", input);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["product.getByCommerce", commerceId] }),
   });
 }

@@ -122,6 +122,7 @@ export const commerces = pgTable("commerces", {
   commissionRate: numeric("commission_rate", { precision: 5, scale: 2 }).default("10.00"),
   lat: numeric("lat", { precision: 10, scale: 8 }),
   lng: numeric("lng", { precision: 11, scale: 8 }),
+  merchantUserId: integer("merchant_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

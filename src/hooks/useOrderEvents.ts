@@ -3,7 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/providers/trpc";
 
 const MAX_RECONNECT_DELAY = 30000;
-const BASE_RECONNECT_DELAY = 1000;
+const BASE_RECONNECT_DELAY = 1500;
+const MAX_CONSECUTIVE_FAILURES = 10;
 
 function createReconnectingEventSource(url: string, onMessage: (data: unknown) => void): { close: () => void } {
   let eventSource: EventSource | null = null;
@@ -11,14 +12,41 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   let isClosed = false;
 
+  const closeSource = () => {
+    if (eventSource) {
+      try {
+        eventSource.close();
+      } catch {}
+      eventSource = null;
+    }
+  };
+
   const connect = () => {
     if (isClosed) return;
-    
-    eventSource = new EventSource(url);
+    if (reconnectAttempts >= MAX_CONSECUTIVE_FAILURES) {
+      console.warn(`[SSE] Giving up reconnecting to ${url} after ${reconnectAttempts} failures`);
+      return;
+    }
+    // Don't open a connection when the tab is hidden — avoids QUIC idle-timeout spam
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      const onVisible = () => {
+        document.removeEventListener("visibilitychange", onVisible);
+        if (!isClosed) connect();
+      };
+      document.addEventListener("visibilitychange", onVisible);
+      return;
+    }
+
+    try {
+      eventSource = new EventSource(url);
+    } catch (err) {
+      console.error("[SSE] EventSource constructor failed:", err);
+      return;
+    }
 
     eventSource.addEventListener("update", (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const data = JSON.parse((event as MessageEvent).data);
         onMessage(data);
         reconnectAttempts = 0;
       } catch (err) {
@@ -28,32 +56,33 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
 
     eventSource.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        onMessage(data);
+        JSON.parse(event.data);
         reconnectAttempts = 0;
-      } catch (err) {
+      } catch {
         // Ignore ping messages that aren't JSON
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.error("[SSE] Connection error:", err);
-      
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
+    eventSource.onerror = () => {
+      if (isClosed) {
+        closeSource();
+        return;
+      }
+      console.warn("[SSE] Connection error on", url);
+
+      closeSource();
+
+      reconnectAttempts++;
+      if (reconnectAttempts > MAX_CONSECUTIVE_FAILURES) {
+        console.warn(`[SSE] Max failures reached for ${url}, stopping.`);
+        return;
       }
 
-      if (isClosed) return;
-
       const delay = Math.min(
-        BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts) + Math.random() * 1000,
+        BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1) + Math.random() * 1000,
         MAX_RECONNECT_DELAY
       );
-      
-      reconnectAttempts++;
-      console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
-      
+      console.log(`[SSE] Reconnecting in ${Math.round(delay)}ms (attempt ${reconnectAttempts})`);
       reconnectTimeout = setTimeout(connect, delay);
     };
   };
@@ -67,10 +96,7 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
         clearTimeout(reconnectTimeout);
         reconnectTimeout = null;
       }
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-      }
+      closeSource();
     }
   };
 }

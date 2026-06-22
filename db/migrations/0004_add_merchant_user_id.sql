@@ -1,0 +1,2 @@
+ALTER TABLE "commerces" ADD COLUMN "merchant_user_id" integer;--> statement-breakpoint
+ALTER TABLE "commerces" ADD CONSTRAINT "commerces_merchant_user_id_users_id_fk" FOREIGN KEY ("merchant_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;

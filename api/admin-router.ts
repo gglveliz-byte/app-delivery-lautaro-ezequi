@@ -364,6 +364,44 @@ export const adminRouter = createRouter({
       return result[0];
     }),
 
+  createCommerce: adminQuery
+    .input(z.object({
+      name: z.string().min(1),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      address: z.string().optional(),
+      categoryId: z.number(),
+      merchantEmail: z.string().email(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      try {
+        const [owner] = await db
+          .select()
+          .from(users)
+          .where(and(eq(users.email, input.merchantEmail), eq(users.role, "merchant")));
+        if (!owner) {
+          throw new Error("Merchant no encontrado con ese email");
+        }
+        const [commerce] = await db.insert(commerces).values({
+          name: input.name,
+          email: input.email || null,
+          phone: input.phone || "",
+          address: input.address || "",
+          categoryId: input.categoryId,
+          status: "active",
+          isOpen: "open",
+          commissionRate: "8.00",
+          merchantUserId: owner.id,
+        }).returning();
+        return commerce;
+      } catch (err) {
+        console.error("[admin.createCommerce] error:", err);
+        if (err instanceof Error) throw new Error(err.message);
+        throw new Error("No se pudo crear el comercio");
+      }
+    }),
+
   // Admin Orders
   orders: adminQuery.query(async () => {
     const db = getDb();
@@ -576,4 +614,9 @@ export const adminRouter = createRouter({
       });
       return { success: true };
     }),
+
+  listCategories: adminQuery.query(async () => {
+    const db = getDb();
+    return db.select().from(categories).orderBy(categories.sortOrder);
+  }),
 });

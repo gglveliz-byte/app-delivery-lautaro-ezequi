@@ -17,6 +17,13 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import ChatBubble from "@/components/ChatBubble";
 
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
 if (typeof document !== "undefined") {
   const style = document.createElement("style");
   style.textContent = `@keyframes driverPulse { 0% { box-shadow: 0 3px 12px rgba(46,125,50,0.4); } 50% { box-shadow: 0 3px 20px rgba(46,125,50,0.7); } 100% { box-shadow: 0 3px 12px rgba(46,125,50,0.4); } }`;

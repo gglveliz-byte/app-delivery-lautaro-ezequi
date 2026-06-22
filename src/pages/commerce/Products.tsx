@@ -95,9 +95,11 @@ export default function CommerceProducts() {
             </button>
             <h1 className="text-lg font-bold text-gray-800">Productos</h1>
           </div>
-          <button onClick={openAdd} className="h-9 px-4 bg-[#2E7D32] text-white text-sm font-medium rounded-lg hover:bg-[#1B5E20] flex items-center gap-1.5">
-            <Plus className="w-4 h-4" /> Nuevo
-          </button>
+          {commerceId && (
+            <button onClick={openAdd} className="h-9 px-4 bg-[#2E7D32] text-white text-sm font-medium rounded-lg hover:bg-[#1B5E20] flex items-center gap-1.5">
+              <Plus className="w-4 h-4" /> Nuevo
+            </button>
+          )}
         </div>
       </header>
 

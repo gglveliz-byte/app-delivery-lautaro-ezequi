@@ -32,69 +32,115 @@ app.use("*", async (c, next) => {
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 
+function setupSSE(c: any, channel: string, stream: any) {
+  c.header("Cache-Control", "no-cache, no-transform");
+  c.header("Connection", "keep-alive");
+  c.header("X-Accel-Buffering", "no");
+
+  let closed = false;
+  const unsubscribe = subscribe(channel, (data: any) => {
+    if (closed) return;
+    try {
+      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
+    } catch (err) {
+      console.warn(`[SSE] write failed on ${channel}:`, (err as Error)?.message);
+    }
+  });
+
+  // Clean up when the client disconnects (or the stream is aborted by the framework)
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    try {
+      unsubscribe();
+    } catch {}
+  };
+
+  if (typeof stream.onAbort === "function") {
+    stream.onAbort(cleanup);
+  }
+  const signal = (c.req as any)?.raw?.signal as AbortSignal | undefined;
+  if (signal && !signal.aborted) {
+    signal.addEventListener("abort", cleanup, { once: true });
+  }
+
+  return { cleanup, isClosed: () => closed };
+}
+
 // SSE endpoints for real-time updates
 app.get("/api/events/orders/:orderId", async (c) => {
   const orderId = c.req.param("orderId");
   return streamSSE(c, async (stream) => {
-    const unsubscribe = subscribe(`order:${orderId}`, (data) => {
-      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
-    });
+    const { cleanup, isClosed } = setupSSE(c, `order:${orderId}`, stream);
 
-    // Keep connection alive
-    while (true) {
-      await stream.sleep(30000);
-      stream.writeSSE({ data: "ping", event: "ping" });
+    try {
+      while (!isClosed()) {
+        await stream.sleep(10000);
+        if (isClosed()) break;
+        try {
+          stream.writeSSE({ data: "ping", event: "ping" });
+        } catch {}
+      }
+    } finally {
+      cleanup();
     }
-
-    unsubscribe();
   });
 });
 
 app.get("/api/events/commerce/:commerceId", async (c) => {
   const commerceId = c.req.param("commerceId");
   return streamSSE(c, async (stream) => {
-    const unsubscribe = subscribe(`commerce:${commerceId}`, (data) => {
-      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
-    });
+    const { cleanup, isClosed } = setupSSE(c, `commerce:${commerceId}`, stream);
 
-    while (true) {
-      await stream.sleep(30000);
-      stream.writeSSE({ data: "ping", event: "ping" });
+    try {
+      while (!isClosed()) {
+        await stream.sleep(10000);
+        if (isClosed()) break;
+        try {
+          stream.writeSSE({ data: "ping", event: "ping" });
+        } catch {}
+      }
+    } finally {
+      cleanup();
     }
-
-    unsubscribe();
   });
 });
 
 app.get("/api/events/driver/:driverId", async (c) => {
   const driverId = c.req.param("driverId");
   return streamSSE(c, async (stream) => {
-    const unsubscribe = subscribe(`driver:${driverId}`, (data) => {
-      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
-    });
+    const { cleanup, isClosed } = setupSSE(c, `driver:${driverId}`, stream);
 
-    while (true) {
-      await stream.sleep(30000);
-      stream.writeSSE({ data: "ping", event: "ping" });
+    try {
+      while (!isClosed()) {
+        await stream.sleep(10000);
+        if (isClosed()) break;
+        try {
+          stream.writeSSE({ data: "ping", event: "ping" });
+        } catch {}
+      }
+    } finally {
+      cleanup();
     }
-
-    unsubscribe();
   });
 });
 
-// SSE endpoint global para productos (usado por Home del cliente)
+// SSE endpoint global para productos
 app.get("/api/events/products", async (c) => {
   return streamSSE(c, async (stream) => {
-    const unsubscribe = subscribe("products:global", (data) => {
-      stream.writeSSE({ data: JSON.stringify(data), event: "update" });
-    });
+    const { cleanup, isClosed } = setupSSE(c, "products:global", stream);
 
-    while (true) {
-      await stream.sleep(30000);
-      stream.writeSSE({ data: "ping", event: "ping" });
+    try {
+      while (!isClosed()) {
+        await stream.sleep(10000);
+        if (isClosed()) break;
+        try {
+          stream.writeSSE({ data: "ping", event: "ping" });
+        } catch {}
+      }
+    } finally {
+      cleanup();
     }
-
-    unsubscribe();
   });
 });
 

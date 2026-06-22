@@ -14,13 +14,15 @@ export default function AdminCommerces() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [showNewMerchant, setShowNewMerchant] = useState(false);
-  const [merchantForm, setMerchantForm] = useState({ name: "", email: "", password: "" });
+  const [merchantForm, setMerchantForm] = useState({ name: "", email: "", password: "", categoryId: "" });
   const [editForm, setEditForm] = useState({ name: "", phone: "", email: "", address: "", commissionRate: "", deliveryTime: "", minOrder: "", description: "" });
   const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
 
   const load = () => {
     setLoading(true);
     trpcCall<any[]>("admin.listCommerces").then(setCommerceList).catch(console.error).finally(() => setLoading(false));
+    trpcCall<any[]>("admin.listCategories").then(setCategories).catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
@@ -49,7 +51,7 @@ export default function AdminCommerces() {
   };
 
   const openNewMerchant = () => {
-    setMerchantForm({ name: "", email: "", password: "" });
+    setMerchantForm({ name: "", email: "", password: "", categoryId: "" });
     setShowNewMerchant(true);
   };
 
@@ -57,9 +59,10 @@ export default function AdminCommerces() {
     e.preventDefault();
     setSaving(true);
     try {
-      await trpcMutate("admin.createMerchant", merchantForm);
+      await trpcMutate("admin.createMerchant", { name: merchantForm.name, email: merchantForm.email, password: merchantForm.password });
+      await trpcMutate("admin.createCommerce", { name: merchantForm.name, merchantEmail: merchantForm.email, categoryId: Number(merchantForm.categoryId) });
       setShowNewMerchant(false);
-      alert("Comercio creado correctamente");
+      load();
     } catch (err: any) {
       alert(err?.message || "Error al crear");
     } finally {
@@ -209,6 +212,12 @@ export default function AdminCommerces() {
               <input placeholder="Nombre del comercio" value={merchantForm.name} onChange={(e) => setMerchantForm({...merchantForm, name: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
               <input type="email" placeholder="Email" value={merchantForm.email} onChange={(e) => setMerchantForm({...merchantForm, email: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
               <input type="password" placeholder="Contraseña" value={merchantForm.password} onChange={(e) => setMerchantForm({...merchantForm, password: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
+              <select value={merchantForm.categoryId} onChange={(e) => setMerchantForm({...merchantForm, categoryId: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] bg-white" required>
+                <option value="">Seleccionar categoría</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowNewMerchant(false)} className="flex-1 h-11 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
                 <button type="submit" disabled={saving} className="flex-1 h-11 bg-[#2E7D32] text-white rounded-xl text-sm font-medium hover:bg-[#1B5E20] disabled:opacity-50">{saving ? "Creando..." : "Crear"}</button>

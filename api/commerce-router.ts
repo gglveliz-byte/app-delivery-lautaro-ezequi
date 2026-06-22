@@ -11,6 +11,13 @@ export const commerceRouter = createRouter({
     return db.select().from(commerces).where(eq(commerces.status, "active"));
   }),
 
+  // Returns the commerce owned by the currently authenticated merchant
+  me: merchantQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db.select().from(commerces).where(eq(commerces.merchantUserId, ctx.merchant.id));
+    return rows[0] || null;
+  }),
+
   getById: publicQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
