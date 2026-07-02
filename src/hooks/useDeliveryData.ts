@@ -261,6 +261,16 @@ export function useUpdateOrderStatus(commerceId?: number) {
   });
 }
 
+export function useUpdatePaymentReceipt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { orderId: number; receipt: string }) => trpcMutate<any>("order.updatePaymentReceipt", input),
+    onSuccess: (result: any, variables: any) => {
+      queryClient.invalidateQueries({ queryKey: ["order.getById", variables.orderId] });
+    },
+  });
+}
+
 export function useMarkCommerceReady(commerceId?: number) {
   const queryClient = useQueryClient();
   return useMutation({

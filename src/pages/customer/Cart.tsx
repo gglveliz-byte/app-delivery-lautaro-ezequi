@@ -25,6 +25,7 @@ export default function Cart() {
   const { customer, isAuthenticated } = useCustomerSession();
   const createOrderMutation = useCreateOrder();
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash");
+  const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderId, setOrderId] = useState<number | null>(null);
@@ -78,12 +79,26 @@ export default function Cart() {
     setShowAddressModal(true);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPaymentReceipt(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const confirmOrder = async () => {
     if (!customer) return;
     if (items.length === 0) return;
 
     const deliveryAddress = getDeliveryAddress();
     if (!deliveryAddress.trim()) return;
+
+    if (paymentMethod === "transfer" && !paymentReceipt) {
+      return;
+    }
 
     setShowAddressModal(false);
     setLoading(true);
@@ -98,6 +113,7 @@ export default function Cart() {
         deliveryAddress,
         customerPhone: customer.phone,
         paymentMethod,
+        paymentReceipt: paymentMethod === "transfer" ? (paymentReceipt || undefined) : undefined,
         deliveryFee: deliveryFee.toFixed(2),
         commission,
       });
@@ -358,9 +374,30 @@ export default function Cart() {
               <span>{customer.phone}</span>
             </div>
 
+            {paymentMethod === "transfer" && (
+              <div className="mt-4 p-3 bg-green-50 rounded-xl border border-green-200">
+                <h3 className="text-sm font-semibold text-gray-800 mb-2">Datos de Transferencia</h3>
+                <p className="text-xs text-gray-600 mb-3 whitespace-pre-wrap">
+                  {settings.bank_transfer_info || "Consultar datos bancarios con soporte."}
+                </p>
+                <div>
+                  <label className="text-[10px] lg:text-xs font-medium text-gray-700 block mb-1">
+                    Adjuntar comprobante *
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full text-xs file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-100 file:text-[#2E7D32] hover:file:bg-green-200"
+                  />
+                  {paymentReceipt && <p className="text-xs text-[#2E7D32] mt-2 font-medium">✓ Comprobante listo</p>}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={confirmOrder}
-              disabled={loading || !getDeliveryAddress().trim()}
+              disabled={loading || !getDeliveryAddress().trim() || (paymentMethod === "transfer" && !paymentReceipt)}
               className="w-full h-12 mt-4 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] transition-all disabled:opacity-50 touch-target"
             >
               {loading ? "Procesando..." : "Confirmar pedido"}

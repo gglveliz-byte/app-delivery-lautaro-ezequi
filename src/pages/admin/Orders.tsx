@@ -8,10 +8,13 @@ import {
   Package,
 } from "lucide-react";
 import { useAdminOrders } from "@/hooks/useDeliveryData";
+import { useAdminSSE } from "@/hooks/useAdminSSE";
 import { trpc } from "@/providers/trpc";
 import AdminLayout from "@/components/AdminLayout";
 
 const statusColors: Record<string, string> = {
+  pending_payment: "bg-red-100 text-red-800 font-bold border-2 border-red-400 animate-pulse",
+  payment_rejected: "bg-red-100 text-red-800 font-bold border-2 border-red-600",
   received: "bg-yellow-100 text-yellow-800",
   accepted: "bg-blue-100 text-blue-800",
   preparing: "bg-purple-100 text-purple-800",
@@ -21,11 +24,12 @@ const statusColors: Record<string, string> = {
   on_the_way: "bg-orange-100 text-orange-800",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
-  cancelled: "bg-red-100 text-red-800",
 };
 
 const filterLabels: Record<string, string> = {
   all: "Todos",
+  pending_payment: "Por Pagar",
+  payment_rejected: "Pago Rechazado",
   received: "Nuevos",
   accepted: "Aceptados",
   preparing: "Preparando",
@@ -48,6 +52,39 @@ export default function AdminOrders() {
     { id: selectedOrderId! },
     { enabled: !!selectedOrderId }
   );
+
+  const utils = trpc.useUtils();
+  
+  useAdminSSE(() => {
+    utils.admin.orders.invalidate();
+    if (selectedOrderId) {
+      utils.admin.orderDetail.invalidate({ id: selectedOrderId });
+    }
+  });
+
+  const updateStatus = trpc.admin.updateOrderStatus.useMutation({
+    onSuccess: () => {
+      utils.admin.orders.invalidate();
+      if (selectedOrderId) {
+        utils.admin.orderDetail.invalidate({ id: selectedOrderId });
+      }
+    }
+  });
+
+  const handleApprovePayment = async () => {
+    if (!selectedOrderId) return;
+    if (confirm("¿Confirmar que el pago ha sido recibido correctamente? Los negocios serán notificados.")) {
+      await updateStatus.mutateAsync({ id: selectedOrderId, status: "received" });
+    }
+  };
+
+  const handleRejectPayment = async () => {
+    if (!selectedOrderId) return;
+    const reason = prompt("Razón del rechazo (ej. Comprobante ilegible):", "Comprobante inválido o ilegible");
+    if (reason !== null) {
+      await updateStatus.mutateAsync({ id: selectedOrderId, status: "payment_rejected", notes: reason });
+    }
+  };
 
   const filtered = orders.filter((o: any) => {
     const matchesSearch =
@@ -85,7 +122,7 @@ export default function AdminOrders() {
           </div>
 
           <div className="flex gap-1.5 lg:gap-2 mb-3 lg:mb-4 overflow-x-auto no-scrollbar pb-1 lg:shrink-0">
-            {["all", "received", "accepted", "preparing", "ready_for_pickup", "driver_assigned", "picked_up", "on_the_way", "delivered", "cancelled"].map((f) => (
+            {["all", "pending_payment", "payment_rejected", "received", "accepted", "preparing", "ready_for_pickup", "driver_assigned", "picked_up", "on_the_way", "delivered", "cancelled"].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -227,6 +264,40 @@ export default function AdminOrders() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Payment Info */}
+                  {orderDetails.paymentMethod === "transfer" && (
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <h3 className="text-sm font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-2">Información de Pago (Transferencia)</h3>
+                      {orderDetails.paymentReceipt ? (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-gray-600 mb-2">Comprobante adjunto:</p>
+                          <img src={orderDetails.paymentReceipt} alt="Comprobante" className="max-w-full rounded-lg border border-gray-200 max-h-[300px] object-contain" />
+                        </div>
+                      ) : (
+                        <p className="text-sm text-orange-600">No se adjuntó comprobante.</p>
+                      )}
+                      
+                      {orderDetails.status === "pending_payment" && (
+                        <div className="mt-4 flex gap-2">
+                          <button
+                            onClick={handleApprovePayment}
+                            disabled={updateStatus.isPending}
+                            className="flex-1 bg-[#2E7D32] text-white font-medium py-2 rounded-lg hover:bg-[#1B5E20] transition-colors"
+                          >
+                            {updateStatus.isPending ? "Aprobando..." : "Aprobar Pago"}
+                          </button>
+                          <button
+                            onClick={handleRejectPayment}
+                            disabled={updateStatus.isPending}
+                            className="flex-1 bg-red-600 text-white font-medium py-2 rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            Rechazar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Summary */}
                   <div className="border-t border-gray-200 pt-3 space-y-2">

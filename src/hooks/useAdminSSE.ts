@@ -28,11 +28,22 @@ export function useAdminSSE(onUpdate: () => void) {
         }
       };
 
+      es.addEventListener("update", (event) => {
+        if (!mountedRef.current) return;
+        try {
+          const data = JSON.parse((event as MessageEvent).data);
+          if (data && data.type !== "ping") {
+            onUpdateRef.current();
+          }
+        } catch {}
+      });
+
+      // Keep onmessage for standard events just in case
       es.onmessage = (event) => {
         if (!mountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
-          if (data.type !== "ping") {
+          if (data && data.type !== "ping") {
             onUpdateRef.current();
           }
         } catch {}

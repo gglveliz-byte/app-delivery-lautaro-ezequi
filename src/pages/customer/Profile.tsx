@@ -196,7 +196,7 @@ export default function CustomerProfile() {
                       month: "short",
                     })}
                     {" - "}
-                    <span className="capitalize">{order.status.replace(/_/g, " ")}</span>
+                    <span className="capitalize">{order.status === "pending_payment" ? "Revisando pago" : order.status.replace(/_/g, " ")}</span>
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

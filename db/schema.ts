@@ -15,6 +15,8 @@ export const driverStatusEnum = pgEnum("driver_status", ["online", "busy", "offl
 export const commerceStatusEnum = pgEnum("commerce_status", ["active", "inactive", "suspended", "pending"]);
 export const openEnum = pgEnum("open_status", ["open", "closed"]);
 export const orderStatusEnum = pgEnum("order_status", [
+  "pending_payment",
+  "payment_rejected",
   "received",
   "accepted",
   "preparing",
@@ -160,6 +162,7 @@ export const orders = pgTable("orders", {
   commission: numeric("commission", { precision: 10, scale: 2 }).default("0.00"),
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   paymentMethod: paymentMethodEnum("payment_method").default("cash").notNull(),
+  paymentReceipt: text("payment_receipt"),
   deliveryAddress: text("delivery_address").notNull(),
   customerPhone: varchar("customer_phone", { length: 20 }),
   notes: text("notes"),

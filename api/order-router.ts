@@ -20,6 +20,7 @@ export const orderRouter = createRouter({
         deliveryAddress: z.string(),
         customerPhone: z.string(),
         paymentMethod: z.enum(["cash", "transfer"]),
+        paymentReceipt: z.string().optional(),
         notes: z.string().optional(),
         deliveryFee: z.string().default("2.50"),
         commission: z.string().default("0.00"),
@@ -33,6 +34,7 @@ export const orderRouter = createRouter({
 
       let subtotal = 0;
       const itemsData = [];
+      const commerceIds = [...new Set(input.items.map((i) => i.commerceId))];
 
       for (const item of input.items) {
         const product = await db.select().from(products).where(eq(products.id, item.productId));
@@ -57,12 +59,13 @@ export const orderRouter = createRouter({
       const result = await db.transaction(async (tx) => {
         const [newOrder] = await tx.insert(orders).values({
           customerId: input.customerId,
-          status: "received",
+          status: input.paymentMethod === "transfer" ? "pending_payment" : "received",
           subtotal: subtotal.toFixed(2),
           deliveryFee: input.deliveryFee,
           commission: input.commission,
           total: total.toFixed(2),
           paymentMethod: input.paymentMethod,
+          paymentReceipt: input.paymentReceipt,
           deliveryAddress: input.deliveryAddress,
           customerPhone: input.customerPhone,
           notes: input.notes,
@@ -84,8 +87,8 @@ export const orderRouter = createRouter({
 
         await tx.insert(orderStatusHistory).values({
           orderId,
-          status: "received",
-          notes: "Pedido recibido",
+          status: input.paymentMethod === "transfer" ? "pending_payment" : "received",
+          notes: input.paymentMethod === "transfer" ? "Pendiente de validación de pago" : "Pedido recibido",
         });
 
         // Create per-commerce status rows (preparing by default)
@@ -101,9 +104,11 @@ export const orderRouter = createRouter({
       });
 
       // Emit SSE events to notify commerces about new order
-      commerceIds.forEach(cId => {
-        emit(`commerce:${cId}`, { type: "new_order", orderId: result.id });
-      });
+      if (input.paymentMethod !== "transfer") {
+        commerceIds.forEach(cId => {
+          emit(`commerce:${cId}`, { type: "new_order", orderId: result.id });
+        });
+      }
 
       emit("admin:dashboard", { type: "dashboard_update" });
 
@@ -230,6 +235,7 @@ export const orderRouter = createRouter({
       z.object({
         id: z.number(),
         status: z.enum([
+          "pending_payment",
           "received",
           "accepted",
           "preparing",
@@ -285,6 +291,15 @@ export const orderRouter = createRouter({
 
         return updated[0];
       });
+
+      // If status changed to received (e.g. from pending_payment), we must wake up the commerces
+      if (input.status === "received") {
+        const orderItemsList = await db.select().from(orderItems).where(eq(orderItems.orderId, input.id));
+        const cIds = [...new Set(orderItemsList.map(i => i.commerceId))];
+        cIds.forEach(cId => {
+          emit(`commerce:${cId}`, { type: "new_order", orderId: input.id });
+        });
+      }
 
       // Emit SSE event to notify order status change
       emit(`order:${input.id}`, { type: "status_update", status: input.status, driverId: input.driverId });
@@ -390,7 +405,7 @@ export const orderRouter = createRouter({
 
       for (const oid of orderIds) {
         const order = await db.select().from(orders).where(eq(orders.id, oid));
-        if (order.length > 0) {
+        if (order.length > 0 && order[0].status !== "pending_payment") {
           const orderItemsForOrder = items.filter(i => i.orderId === oid);
           const commerceTotal = orderItemsForOrder.reduce((sum, i) => sum + parseFloat(i.total), 0);
           const commerceCommission = (commerceTotal * commissionRate / 100).toFixed(2);
@@ -414,6 +429,39 @@ export const orderRouter = createRouter({
           });
         }
       }
+      return result;
+    }),
+
+  updatePaymentReceipt: customerQuery
+    .input(z.object({ orderId: z.number(), receipt: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const orderList = await db.select().from(orders).where(eq(orders.id, input.orderId));
+      if (orderList.length === 0) throw new Error("Pedido no encontrado");
+      if (orderList[0].customerId !== ctx.customer!.id) throw new Error("No puedes modificar este pedido");
+      
+      const result = await db.transaction(async (tx) => {
+        const updated = await tx.update(orders)
+          .set({ 
+            paymentReceipt: input.receipt, 
+            status: "pending_payment", 
+            updatedAt: new Date() 
+          })
+          .where(eq(orders.id, input.orderId))
+          .returning();
+          
+        await tx.insert(orderStatusHistory).values({
+          orderId: input.orderId,
+          status: "pending_payment",
+          notes: "Comprobante re-subido por el cliente",
+        });
+        
+        return updated[0];
+      });
+      
+      emit(`order:${input.orderId}`, { type: "status_update", status: "pending_payment" });
+      emit("admin:dashboard", { type: "dashboard_update" });
+      
       return result;
     }),
 

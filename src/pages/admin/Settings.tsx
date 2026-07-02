@@ -29,6 +29,7 @@ export default function AdminSettings() {
     minOrderAmount: "3.00",
     appName: "YA LLEGA",
     supportPhone: "555-HELP",
+    bankTransferInfo: "",
   });
   const settingsQuery = trpc.admin.settings.useQuery();
   const updateSetting = useUpdateSetting();
@@ -44,6 +45,7 @@ export default function AdminSettings() {
       minOrderAmount: map.min_order_amount || "3.00",
       appName: map.app_name || "YA LLEGA",
       supportPhone: map.support_phone || "555-HELP",
+      bankTransferInfo: map.bank_transfer_info || "",
     });
   }, [settingsQuery.data]);
 
@@ -56,6 +58,7 @@ export default function AdminSettings() {
         updateSetting.mutateAsync({ key: "delivery_fee", value: settings.deliveryFee }),
         updateSetting.mutateAsync({ key: "commission_rate", value: settings.commissionRate }),
         updateSetting.mutateAsync({ key: "min_order_amount", value: settings.minOrderAmount }),
+        updateSetting.mutateAsync({ key: "bank_transfer_info", value: settings.bankTransferInfo }),
       ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -213,6 +216,28 @@ export default function AdminSettings() {
                 value={settings.minOrderAmount}
                 onChange={(e) => setSettings({ ...settings, minOrderAmount: e.target.value })}
                 className="w-full h-9 lg:h-10 px-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Bank Transfer Settings */}
+        <div className="bg-white rounded-xl card-shadow p-3 lg:p-5">
+          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-3 lg:mb-4 flex items-center gap-2">
+            <DollarSign className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-[#2E7D32]" />
+            Datos de Transferencia Bancaria
+          </h2>
+          <div className="space-y-3 lg:space-y-4">
+            <div>
+              <label className="text-[10px] lg:text-xs font-medium text-gray-600 mb-1 block">
+                Instrucciones para clientes (Banco, CVU/CBU, Alias, Titular)
+              </label>
+              <textarea
+                value={settings.bankTransferInfo}
+                onChange={(e) => setSettings({ ...settings, bankTransferInfo: e.target.value })}
+                placeholder="Ej: Banco Galicia, CBU: 123... Alias: mi.alias, Titular: Juan Perez"
+                rows={4}
+                className="w-full p-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 resize-none"
               />
             </div>
           </div>

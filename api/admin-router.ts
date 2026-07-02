@@ -758,6 +758,7 @@ export const adminRouter = createRouter({
     .input(z.object({
       id: z.number(),
       status: z.enum([
+        "pending_payment",
         "received",
         "accepted",
         "preparing",
@@ -780,10 +781,12 @@ export const adminRouter = createRouter({
 
         await tx.update(orders).set(updateData).where(eq(orders.id, input.id));
         
-        // Sync the individual commerce statuses
-        await tx.update(orderCommerceStatus)
-          .set({ status: input.status, updatedAt: new Date() })
-          .where(eq(orderCommerceStatus.orderId, input.id));
+        // Sync the individual commerce statuses only if valid for commerces
+        if (["preparing", "ready_for_pickup", "picked_up"].includes(input.status)) {
+          await tx.update(orderCommerceStatus)
+            .set({ status: input.status as any, updatedAt: new Date() })
+            .where(eq(orderCommerceStatus.orderId, input.id));
+        }
 
         await tx.insert(orderStatusHistory).values({
           orderId: input.id,
@@ -799,6 +802,16 @@ export const adminRouter = createRouter({
         return updated[0];
       });
 
+      // If status changed to received, notify commerces
+      if (input.status === "received") {
+        const orderItemsList = await db.select().from(orderItems).where(eq(orderItems.orderId, input.id));
+        const cIds = [...new Set(orderItemsList.map(i => i.commerceId))];
+        cIds.forEach(cId => {
+          emit(`commerce:${cId}`, { type: "new_order", orderId: input.id });
+        });
+      }
+
+      emit(`order:${input.id}`, { type: "status_update", status: input.status, driverId: input.driverId });
       emit("admin:dashboard", { type: "dashboard_update" });
       return result;
     }),
@@ -877,6 +890,7 @@ export const adminRouter = createRouter({
           }
 
           for (const oid of affectedOrderIds) {
+            await tx.delete(driverEarnings).where(eq(driverEarnings.orderId, oid));
             await tx.delete(orders).where(eq(orders.id, oid));
           }
         }

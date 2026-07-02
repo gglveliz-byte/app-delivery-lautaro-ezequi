@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Phone, MapPin, Navigation, Clock, Crosshair } from "lucide-react";
-import { useOrder } from "@/hooks/useDeliveryData";
+import { ArrowLeft, Phone, MapPin, Navigation, Clock, Crosshair, AlertTriangle, Upload } from "lucide-react";
+import { useOrder, useUpdatePaymentReceipt } from "@/hooks/useDeliveryData";
 import { useOrderEvents } from "@/hooks/useOrderEvents";
 import { trpc } from "@/providers/trpc";
 import L from "leaflet";
@@ -91,6 +91,25 @@ export default function OrderTracking() {
   const polylineRef = useRef<L.Polyline | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const prevDriverPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const updateReceipt = useUpdatePaymentReceipt();
+
+  const handleReuploadReceipt = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        try {
+          await updateReceipt.mutateAsync({ orderId: Number(id), receipt: base64 });
+          alert("Comprobante enviado exitosamente. En espera de revisión.");
+        } catch (err) {
+          alert("Error al enviar el comprobante.");
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Geocode delivery address when order loads
   useEffect(() => {
@@ -282,6 +301,7 @@ export default function OrderTracking() {
 
   const isDelivered = order?.status === "delivered";
   const isCancelled = order?.status === "cancelled";
+  const isPaymentRejected = order?.status === "payment_rejected";
   const hasDriver = !!order?.driver;
 
   // Auto-redirect to /home after 5s on delivery
@@ -377,56 +397,79 @@ export default function OrderTracking() {
         </div>
       )}
 
-      {/* Simplified Progress bar */}
+      {/* Progress or Rejected Payment */}
       <div className="px-4 mt-4">
-        <div className="bg-white rounded-xl card-shadow p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-800">Estado del pedido</span>
+        {isPaymentRejected ? (
+          <div className="bg-red-50 rounded-xl card-shadow p-5 border border-red-200 text-center">
+            <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <h3 className="text-lg font-bold text-red-700 mb-1">Pago Rechazado</h3>
+            <p className="text-sm text-red-600 mb-4">El comprobante subido no es válido o es ilegible. Por favor, sube el comprobante verdadero para continuar con el pedido.</p>
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              ref={fileInputRef} 
+              onChange={handleReuploadReceipt}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={updateReceipt.isPending}
+              className="w-full h-11 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              {updateReceipt.isPending ? "Subiendo..." : "Reenviar Comprobante"}
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl card-shadow p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-800">Estado del pedido</span>
+              {!isCancelled && (
+                <span className="text-xs font-medium text-[#2E7D32]">
+                  {hasDriver && order.commerces?.some((c: any) => c.status !== "preparing")
+                    ? `En proceso: ${order.commerces.filter((c: any) => c.status === "picked_up").length}/${order.commerces.length} recogidos`
+                    : currentStepIndex >= 0
+                      ? statusSteps[currentStepIndex]?.label
+                      : order.status === "pending_payment" ? "Revisando pago" : order.status.replace(/_/g, " ")}
+                </span>
+              )}
+              {isCancelled && (
+                <span className="text-xs font-medium text-red-600">Cancelado</span>
+              )}
+            </div>
+
             {!isCancelled && (
-              <span className="text-xs font-medium text-[#2E7D32]">
-                {hasDriver && order.commerces?.some((c: any) => c.status !== "preparing")
-                  ? `En proceso: ${order.commerces.filter((c: any) => c.status === "picked_up").length}/${order.commerces.length} recogidos`
-                  : currentStepIndex >= 0
-                    ? statusSteps[currentStepIndex]?.label
-                    : order.status.replace(/_/g, " ")}
-              </span>
-            )}
-            {isCancelled && (
-              <span className="text-xs font-medium text-red-600">Cancelado</span>
+              <>
+                <div className="progress-track">
+                  <div className="progress-fill" style={{ width: `${Math.min(progress, 100)}%` }} />
+                </div>
+
+                <div className="flex justify-between mt-3">
+                  {statusSteps.map((step, i) => (
+                    <div key={step.key} className="flex flex-col items-center gap-1" style={{ width: `${100 / statusSteps.length}%` }}>
+                      <div
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                          i <= currentStepIndex
+                            ? "bg-[#2E7D32] text-white shadow-sm"
+                            : "bg-gray-200 text-gray-400"
+                        } ${i === currentStepIndex ? "ring-2 ring-[#2E7D32]/30" : ""}`}
+                      >
+                        {i < currentStepIndex ? (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <span className={`text-[9px] text-center leading-tight ${i <= currentStepIndex ? "text-gray-800 font-medium" : "text-gray-400"}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
-
-          {!isCancelled && (
-            <>
-              <div className="progress-track">
-                <div className="progress-fill" style={{ width: `${Math.min(progress, 100)}%` }} />
-              </div>
-
-              <div className="flex justify-between mt-3">
-                {statusSteps.map((step, i) => (
-                  <div key={step.key} className="flex flex-col items-center gap-1" style={{ width: `${100 / statusSteps.length}%` }}>
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                        i <= currentStepIndex
-                          ? "bg-[#2E7D32] text-white shadow-sm"
-                          : "bg-gray-200 text-gray-400"
-                      } ${i === currentStepIndex ? "ring-2 ring-[#2E7D32]/30" : ""}`}
-                    >
-                      {i < currentStepIndex ? (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                      ) : (
-                        i + 1
-                      )}
-                    </div>
-                    <span className={`text-[9px] text-center leading-tight ${i <= currentStepIndex ? "text-gray-800 font-medium" : "text-gray-400"}`}>
-                      {step.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Commerce Pickup Status — show when driver assigned or any commerce not preparing */}
