@@ -17,21 +17,8 @@ import {
 } from "lucide-react";
 import { useCustomerSession } from "@/hooks/useCustomerSession";
 import { useCustomerOrders, useUpdateCustomerProfile } from "@/hooks/useDeliveryData";
-import { BottomNav } from "./Home";
-
-async function getAddressFromCoords(lat: number, lng: number): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=es`,
-      { headers: { "User-Agent": "YALlega-App/1.0" } }
-    );
-    const data = await res.json();
-    if (data?.display_name) return data.display_name;
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  } catch {
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  }
-}
+import { CustomerBottomNav } from "@/components/CustomerBottomNav";
+import { getAddressFromCoords } from "@/lib/locationUtils";
 
 export default function CustomerProfile() {
   const navigate = useNavigate();
@@ -60,24 +47,7 @@ export default function CustomerProfile() {
           Crear cuenta
         </button>
 
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-2 flex justify-around items-center z-50" style={{ maxWidth: "480px", margin: "0 auto" }}>
-          <button onClick={() => navigate("/home")} className="bottom-nav-item">
-            <UtensilsCrossed className="w-5 h-5" />
-            <span className="text-[10px]">Inicio</span>
-          </button>
-          <button onClick={() => navigate("/search")} className="bottom-nav-item">
-            <Search className="w-5 h-5" />
-            <span className="text-[10px]">Buscar</span>
-          </button>
-          <button onClick={() => navigate("/cart")} className="bottom-nav-item">
-            <ShoppingCart className="w-5 h-5" />
-            <span className="text-[10px]">Carrito</span>
-          </button>
-          <button onClick={() => navigate("/profile")} className="bottom-nav-item active">
-            <User className="w-5 h-5" />
-            <span className="text-[10px]">Perfil</span>
-          </button>
-        </div>
+        <CustomerBottomNav active="profile" />
       </div>
     );
   }
@@ -244,7 +214,6 @@ export default function CustomerProfile() {
         <button
           onClick={() => {
             logout();
-            localStorage.removeItem("qs_session");
             navigate("/customer-login");
           }}
           className="w-full bg-white rounded-xl card-shadow p-4 flex items-center gap-3 text-red-500 hover:bg-red-50 transition-colors"
@@ -254,7 +223,7 @@ export default function CustomerProfile() {
         </button>
       </div>
 
-      <BottomNav active="profile" />
+      <CustomerBottomNav active="profile" />
     </div>
   );
 }

@@ -47,6 +47,10 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
     eventSource.addEventListener("update", (event) => {
       try {
         const data = JSON.parse((event as MessageEvent).data);
+        if (data && data.type === "ping") {
+          reconnectAttempts = 0;
+          return;
+        }
         onMessage(data);
         reconnectAttempts = 0;
       } catch (err) {
@@ -56,7 +60,11 @@ function createReconnectingEventSource(url: string, onMessage: (data: unknown) =
 
     eventSource.onmessage = (event) => {
       try {
-        JSON.parse(event.data);
+        const data = JSON.parse(event.data);
+        if (data && data.type === "ping") {
+          reconnectAttempts = 0;
+          return;
+        }
         reconnectAttempts = 0;
       } catch {
         // Ignore ping messages that aren't JSON
@@ -176,6 +184,21 @@ export function useProductEvents(utils: ReturnType<typeof trpc.useUtils>) {
         utils.product.getByCommerce.invalidate();
         queryClient.invalidateQueries({ queryKey: ["product.getFeatured"] });
         queryClient.invalidateQueries({ queryKey: ["product.getByCommerce"] });
+      }
+    );
+
+    return () => connection.close();
+  }, [utils, queryClient]);
+}
+
+export function useCommercesEvents(utils: ReturnType<typeof trpc.useUtils>) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const connection = createReconnectingEventSource(
+      `/api/events/commerces`,
+      () => {
+        utils.commerce.list.invalidate();
+        queryClient.invalidateQueries({ queryKey: ["commerce.list"] });
       }
     );
 

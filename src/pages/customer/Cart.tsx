@@ -15,21 +15,8 @@ import {
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useCustomerSession } from "@/hooks/useCustomerSession";
-import { useCreateOrder, usePublicSettings } from "@/hooks/useDeliveryData";
-
-async function getAddressFromCoords(lat: number, lng: number): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=es`,
-      { headers: { "User-Agent": "YALlega-App/1.0" } }
-    );
-    const data = await res.json();
-    if (data?.display_name) return data.display_name;
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  } catch {
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  }
-}
+import { useCreateOrder, usePublicSettings, useCommerces } from "@/hooks/useDeliveryData";
+import { getAddressFromCoords } from "@/lib/locationUtils";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -48,13 +35,19 @@ export default function Cart() {
   const [currentAddress, setCurrentAddress] = useState("");
 
   const settings = usePublicSettings();
+  const { data: commerces, loading: loadingCommerces } = useCommerces();
 
   const deliveryFee = parseFloat(settings.delivery_fee || "2.50");
   const commissionRate = parseFloat(settings.commission_rate || "8.00");
   const commission = ((subtotal * commissionRate) / 100).toFixed(2);
-  const total = (subtotal + deliveryFee + parseFloat(commission)).toFixed(2);
+  const total = (subtotal + deliveryFee).toFixed(2);
 
   const grouped = getItemsByCommerce();
+
+  const invalidItems = items.filter(item => {
+    const commerce = commerces.find((c: any) => c.id === item.commerceId);
+    return !loadingCommerces && (!commerce || commerce.isOpen !== "open");
+  });
 
   const getDeliveryAddress = () => {
     if (addressMode === "custom") return customAddress;
@@ -228,6 +221,12 @@ export default function Cart() {
 
       {/* Fixed bottom bar: payment + totals + confirm */}
       <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4 z-50 space-y-3 shrink-0">
+        {invalidItems.length > 0 && (
+          <div className="p-3 bg-red-50 rounded-xl border border-red-100 flex items-start gap-2">
+            <span className="text-red-500 font-bold mt-0.5">!</span>
+            <p className="text-xs text-red-600 leading-tight">Algunos productos pertenecen a comercios que están cerrados o no disponibles. Por favor, elimínalos para continuar.</p>
+          </div>
+        )}
         {/* Payment method inline */}
         <div className="flex gap-2">
           <button
@@ -264,10 +263,6 @@ export default function Cart() {
             <span>Envio</span>
             <span>${deliveryFee.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Comision</span>
-            <span>${commission}</span>
-          </div>
           <div className="flex justify-between text-base font-bold text-gray-800 pt-1 border-t border-gray-100">
             <span>Total</span>
             <span className="text-[#2E7D32]">${total}</span>
@@ -276,7 +271,7 @@ export default function Cart() {
 
         <button
           onClick={handleCheckout}
-          disabled={loading}
+          disabled={loading || invalidItems.length > 0}
           className="w-full h-12 bg-[#2E7D32] text-white font-medium rounded-xl hover:bg-[#1B5E20] active:scale-[0.98] transition-all disabled:opacity-50 touch-target"
         >
           {loading ? "Procesando..." : "Confirmar pedido"}

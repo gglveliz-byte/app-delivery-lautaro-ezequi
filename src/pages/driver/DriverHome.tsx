@@ -235,7 +235,7 @@ export default function DriverHome() {
 
                     <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                       <span className="text-xs text-gray-500">
-                        {order.items?.length || 1} items | Total: ${order.total}
+                        {order.items?.length || 1} items | Total: ${order.total} | {order.paymentMethod === 'cash' ? '💵 Efectivo' : '💳 Transferencia'}
                       </span>
                       <button
                         onClick={() => handleAcceptOrder(order.id)}

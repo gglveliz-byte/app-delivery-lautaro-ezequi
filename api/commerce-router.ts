@@ -78,6 +78,7 @@ export const commerceRouter = createRouter({
         await db.update(commerces).set(updateData).where(eq(commerces.id, id));
       }
       const result = await db.select().from(commerces).where(eq(commerces.id, id));
+      emit("admin:dashboard", { type: "dashboard_update" });
       return result[0];
     }),
 
@@ -89,6 +90,7 @@ export const commerceRouter = createRouter({
       if (commerce.length === 0) return null;
       const newStatus = commerce[0].isOpen === "open" ? "closed" : "open";
       await db.update(commerces).set({ isOpen: newStatus }).where(eq(commerces.id, input.id));
+      emit("admin:dashboard", { type: "dashboard_update" });
       return { ...commerce[0], isOpen: newStatus };
     }),
 
@@ -96,6 +98,7 @@ export const commerceRouter = createRouter({
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const db = getDb();
+      const [commerce] = await db.select().from(commerces).where(eq(commerces.id, input.id));
       const prods = await db.select().from(products).where(eq(products.commerceId, input.id));
 
       const orderItemsForCommerce = await db
@@ -147,6 +150,8 @@ export const commerceRouter = createRouter({
         .slice(0, 10);
 
       const avgTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
+      const commissionRate = parseFloat(commerce?.commissionRate || "10");
+      const totalCommission = totalSales * (commissionRate / 100);
 
       return {
         totalProducts: prods.length,
@@ -154,6 +159,7 @@ export const commerceRouter = createRouter({
         totalSales: Number(totalSales.toFixed(2)),
         totalOrders,
         avgTicket: Number(avgTicket.toFixed(2)),
+        totalCommission: Number(totalCommission.toFixed(2)),
         topProducts,
         dailySales,
       };
@@ -214,6 +220,7 @@ export const commerceRouter = createRouter({
         // Emit commerce ready event
         emit(`commerce:${input.commerceId}`, { type: "commerce_ready", orderId: input.orderId });
         emit(`order:${input.orderId}`, { type: "commerce_ready", commerceId: input.commerceId });
+        emit("admin:dashboard", { type: "dashboard_update" });
 
         return { allReady };
       });

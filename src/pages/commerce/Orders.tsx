@@ -16,7 +16,13 @@ export default function CommerceOrders() {
   const { commerceId } = useMerchantCommerceId();
   const updateOrderStatus = useUpdateOrderStatus(commerceId || undefined);
   const markCommerceReady = useMarkCommerceReady(commerceId || undefined);
-  const { data: orders, loading } = useCommerceOrders(commerceId || 0);
+  const { data: rawOrders, loading } = useCommerceOrders(commerceId || 0);
+  const orders = (rawOrders || []).map((o) => {
+    if (o.status === "delivered" || o.status === "cancelled") {
+      return { ...o, myCommerceStatus: o.status };
+    }
+    return o;
+  });
   const commerceUtils = trpc.useUtils();
   useCommerceEvents(commerceId || undefined, commerceUtils);
 
@@ -78,9 +84,9 @@ export default function CommerceOrders() {
         </div>
       </header>
 
-      <div className="p-4 max-w-4xl mx-auto">
+      <div className="p-3 lg:p-4 max-w-4xl mx-auto">
         {/* Filters */}
-        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar">
+        <div className="flex gap-1.5 lg:gap-2 mb-3 lg:mb-4 overflow-x-auto no-scrollbar">
           {[
             { key: "all", label: "Todos" },
             { key: "received", label: "Nuevos" },
@@ -120,10 +126,10 @@ export default function CommerceOrders() {
 
         {/* Orders List */}
         {!loading && (
-          <div className="space-y-3">
+          <div className="space-y-2 lg:space-y-3">
             {filteredOrders.map((order) => (
               <div key={order.id} className="bg-white rounded-xl card-shadow overflow-hidden">
-                <div className="p-4">
+                <div className="p-3 lg:p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-[#2E7D32] rounded-lg flex items-center justify-center">
@@ -159,6 +165,12 @@ export default function CommerceOrders() {
                           <span className="text-gray-800">${parseFloat(item.unitPrice).toFixed(2)}</span>
                         </div>
                       ))}
+                      {order.commerceCommission && (
+                        <div className="flex justify-between text-sm mt-2 pt-2 border-t border-gray-50">
+                          <span className="text-gray-500 font-medium">Comision plataforma</span>
+                          <span className="text-red-500 font-medium">-${order.commerceCommission}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -211,6 +223,18 @@ export default function CommerceOrders() {
                       <span className="w-full h-10 bg-orange-50 text-orange-700 text-sm font-medium rounded-lg flex items-center justify-center gap-1.5">
                         <Package className="w-4 h-4" />
                         Recogido por repartidor
+                      </span>
+                    )}
+                    {order.myCommerceStatus === "delivered" && (
+                      <span className="w-full h-10 bg-green-50 text-green-700 text-sm font-medium rounded-lg flex items-center justify-center gap-1.5">
+                        <CheckCircle className="w-4 h-4" />
+                        Entregado al cliente
+                      </span>
+                    )}
+                    {order.myCommerceStatus === "cancelled" && (
+                      <span className="w-full h-10 bg-red-50 text-red-700 text-sm font-medium rounded-lg flex items-center justify-center gap-1.5">
+                        <CheckCircle className="w-4 h-4" />
+                        Cancelado
                       </span>
                     )}
                   </div>

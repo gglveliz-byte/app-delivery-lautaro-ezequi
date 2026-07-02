@@ -84,6 +84,7 @@ export const drivers = pgTable("drivers", {
   currentLng: numeric("current_lng", { precision: 11, scale: 8 }),
   rating: numeric("rating", { precision: 2, scale: 1 }).default("4.5"),
   totalEarnings: numeric("total_earnings", { precision: 10, scale: 2 }).default("0.00"),
+  commissionRate: numeric("commission_rate", { precision: 5, scale: 2 }).default("80.00"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

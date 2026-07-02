@@ -5,6 +5,7 @@ import { useCart } from "@/hooks/useCart";
 import { useCommerceEvents } from "@/hooks/useOrderEvents";
 import { trpc } from "@/providers/trpc";
 import { safeImage } from "@/lib/imageUtils";
+import { CustomerBottomNav } from "@/components/CustomerBottomNav";
 
 export default function CommerceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -53,17 +54,6 @@ export default function CommerceDetail() {
           className="absolute top-4 left-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center touch-target z-10"
         >
           <ArrowLeft className="w-5 h-5 text-gray-700" />
-        </button>
-        <button
-          onClick={() => navigate("/cart")}
-          className="absolute top-4 right-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center touch-target z-10"
-        >
-          <ShoppingCart className="w-5 h-5 text-gray-700" />
-          {totalItems > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-              {totalItems}
-            </span>
-          )}
         </button>
         <div className="absolute bottom-4 left-4 right-4">
           <h1 className="text-xl font-bold text-white">{commerce.name}</h1>
@@ -167,6 +157,7 @@ export default function CommerceDetail() {
           ))
         )}
       </div>
+      <CustomerBottomNav active="" />
     </div>
   );
 }

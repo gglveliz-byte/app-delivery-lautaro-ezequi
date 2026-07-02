@@ -47,6 +47,7 @@ export const driverRouter = createRouter({
       const db = getDb();
       await db.update(drivers).set({ status: input.status }).where(eq(drivers.id, input.id));
       const result = await db.select().from(drivers).where(eq(drivers.id, input.id));
+      emit("admin:dashboard", { type: "dashboard_update" });
       return result[0];
     }),
 
@@ -90,6 +91,7 @@ export const driverRouter = createRouter({
         await db.update(drivers).set(updateData).where(eq(drivers.id, id));
       }
       const result = await db.select().from(drivers).where(eq(drivers.id, id));
+      emit("admin:dashboard", { type: "dashboard_update" });
       return result[0];
     }),
 
@@ -227,6 +229,7 @@ export const driverRouter = createRouter({
         // Emit SSE events to notify about order assignment
         emit(`order:${input.orderId}`, { type: "status_update", status: "ready_for_pickup", driverId: input.driverId });
         emit(`driver:${input.driverId}`, { type: "order_assigned", orderId: input.orderId });
+        emit("admin:dashboard", { type: "dashboard_update" });
 
         return updated[0];
       });
@@ -303,6 +306,7 @@ export const driverRouter = createRouter({
           emit(`order:${input.orderId}`, { type: "commerce_pickup", commerceId: input.commerceId, pickedUpCommerceIds: newPicked });
         }
         emit(`driver:${input.driverId}`, { type: "commerce_pickup", orderId: input.orderId, commerceId: input.commerceId, pickedUpCommerceIds: newPicked });
+        emit("admin:dashboard", { type: "dashboard_update" });
 
         const updated = await tx.select().from(orders).where(eq(orders.id, input.orderId));
         return updated[0];

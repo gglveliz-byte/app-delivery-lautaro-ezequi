@@ -21,7 +21,8 @@ import {
 import { useCart } from "@/hooks/useCart";
 import { useCustomerSession } from "@/hooks/useCustomerSession";
 import { useCategories, useCommerces, useFeaturedProducts, useProductsByCommerce } from "@/hooks/useDeliveryData";
-import { useProductEvents } from "@/hooks/useOrderEvents";
+import { CustomerBottomNav } from "@/components/CustomerBottomNav";
+import { useProductEvents, useCommercesEvents } from "@/hooks/useOrderEvents";
 import { trpc } from "@/providers/trpc";
 import { safeImage } from "@/lib/imageUtils";
 
@@ -49,6 +50,7 @@ export default function CustomerHome() {
   // Escuchar cambios de productos en tiempo real
   const productUtils = trpc.useUtils();
   useProductEvents(productUtils);
+  useCommercesEvents(productUtils);
 
   const activeCategories = useMemo(() => {
     const ids = new Set(commerces.map((c) => c.categoryId));
@@ -102,17 +104,6 @@ export default function CustomerHome() {
           <div className="flex items-center gap-3">
             <button onClick={() => navigate("/profile")} className="text-white/80 hover:text-white touch-target">
               <MapPin className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => navigate("/cart")}
-              className="relative text-white/80 hover:text-white touch-target"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {totalItems}
-                </span>
-              )}
             </button>
           </div>
         </div>
@@ -248,7 +239,7 @@ export default function CustomerHome() {
       </div>
 
       {/* Bottom Nav */}
-      <BottomNav active="home" />
+      <CustomerBottomNav active="home" />
     </div>
   );
 }
@@ -261,7 +252,7 @@ function ProductCard({ product }: { product: any }) {
     <div className="min-w-[160px] bg-white rounded-xl card-shadow overflow-hidden">
       <div
         className="h-24 bg-gray-100 bg-cover bg-center cursor-pointer"
-        style={{ backgroundImage: `url(${product.image})` }}
+        style={{ backgroundImage: `url(${safeImage(product.image, "product")})` }}
         onClick={() => navigate(`/commerce/${product.commerceId}`)}
       />
       <div className="p-2.5">
@@ -298,7 +289,7 @@ function ProductCardGrid({ product }: { product: any }) {
     <div className="bg-white rounded-xl card-shadow overflow-hidden cursor-pointer" onClick={() => navigate(`/commerce/${product.commerceId}`)}>
       <div
         className="h-28 bg-gray-100 bg-cover bg-center"
-        style={{ backgroundImage: `url(${product.image})` }}
+        style={{ backgroundImage: `url(${safeImage(product.image, "product")})` }}
       />
       <div className="p-2.5">
         <p className="text-xs text-gray-500 truncate">{product.commerceName}</p>
@@ -331,7 +322,7 @@ function CommerceCard({ commerce }: { commerce: any }) {
   const navigate = useNavigate();
   const { addItem } = useCart();
   const { data: products } = useProductsByCommerce(commerce.id);
-  const featuredProducts = products.filter((p: any) => p.isFeatured === "yes").slice(0, 3);
+  const featuredProducts = (products || []).filter((p: any) => p.isFeatured === "yes").slice(0, 3);
 
   return (
     <div className="bg-white rounded-xl card-shadow overflow-hidden">
@@ -378,7 +369,7 @@ function CommerceCard({ commerce }: { commerce: any }) {
               <div key={product.id} className="flex-shrink-0 w-32 bg-gray-50 rounded-lg p-2">
                 <div
                   className="w-full h-16 bg-gray-200 bg-cover bg-center rounded mb-1.5 cursor-pointer"
-                  style={{ backgroundImage: `url(${product.image})` }}
+                  style={{ backgroundImage: `url(${safeImage(product.image, "product")})` }}
                   onClick={() => navigate(`/commerce/${commerce.id}`)}
                 />
                 <p className="text-xs font-medium text-gray-800 truncate">{product.name}</p>
@@ -407,30 +398,5 @@ function CommerceCard({ commerce }: { commerce: any }) {
         </div>
       )}
     </div>
-  );
-}
-
-export function BottomNav({ active }: { active: string }) {
-  const navigate = useNavigate();
-
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-2 flex justify-around items-center z-50" style={{ maxWidth: "480px", margin: "0 auto" }}>
-      <button onClick={() => navigate("/home")} className={`bottom-nav-item ${active === "home" ? "active" : ""}`}>
-        <UtensilsCrossed className="w-5 h-5" />
-        <span className="text-[10px]">Inicio</span>
-      </button>
-      <button onClick={() => navigate("/search")} className={`bottom-nav-item ${active === "search" ? "active" : ""}`}>
-        <Search className="w-5 h-5" />
-        <span className="text-[10px]">Buscar</span>
-      </button>
-      <button onClick={() => navigate("/cart")} className={`bottom-nav-item ${active === "cart" ? "active" : ""}`}>
-        <ShoppingCart className="w-5 h-5" />
-        <span className="text-[10px]">Carrito</span>
-      </button>
-      <button onClick={() => navigate("/profile")} className={`bottom-nav-item ${active === "profile" ? "active" : ""}`}>
-        <User className="w-5 h-5" />
-        <span className="text-[10px]">Perfil</span>
-      </button>
-    </nav>
   );
 }

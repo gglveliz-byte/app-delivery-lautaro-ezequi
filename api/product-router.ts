@@ -158,9 +158,17 @@ export const productRouter = createRouter({
         emit("products:global", { type: "products_update", action: "delete", productId: input.id });
 
         return { success: true };
-      } catch (err) {
+      } catch (err: any) {
         if (err instanceof TRPCError) throw err;
         console.error("[product.delete] DB error:", err);
+        
+        if (err?.code === '23503' || err?.message?.includes('foreign key constraint')) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "No se puede eliminar un producto con historial de pedidos. Por favor, márquelo como inactivo.",
+          });
+        }
+        
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "No se pudo eliminar el producto",

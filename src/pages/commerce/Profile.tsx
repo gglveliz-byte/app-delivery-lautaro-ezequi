@@ -186,9 +186,9 @@ export default function CommerceProfile() {
         </div>
       </header>
 
-      <div className="p-4 max-w-2xl mx-auto space-y-4">
+      <div className="p-3 lg:p-4 max-w-2xl mx-auto space-y-3 lg:space-y-4">
         {/* Status card */}
-        <div className="bg-white rounded-xl card-shadow p-4 flex items-center justify-between">
+        <div className="bg-white rounded-xl card-shadow p-3 lg:p-4 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-800">Estado del comercio</p>
             <p className={`text-xs mt-0.5 ${commerce?.isOpen === "open" ? "text-green-600" : "text-red-500"}`}>
@@ -244,7 +244,7 @@ export default function CommerceProfile() {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-xl card-shadow p-4 space-y-4">
+        <div className="bg-white rounded-xl card-shadow p-3 lg:p-4 space-y-3 lg:space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1">

@@ -4,6 +4,7 @@ import { getDb } from "./queries/connection";
 import { orders, orderItems, orderStatusHistory, orderCommerceStatus, commerces, products, drivers, driverEarnings, customers, categories, appSettings, users } from "@db/schema";
 import { eq, sql, desc, and, ne, gte, lte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { emit } from "./events";
 import { verifyAdminRefreshToken, setAdminCookie } from "./admin-auth";
 
 export const adminRouter = createRouter({
@@ -26,26 +27,46 @@ export const adminRouter = createRouter({
 
   dashboard: adminQuery.query(async () => {
     const db = getDb();
-    const allOrders = await db.select().from(orders);
-    const activeCommerces = await db.select().from(commerces).where(eq(commerces.status, "active"));
-    const allDrivers = await db.select().from(drivers);
-    const allCustomers = await db.select().from(customers);
     
-    const totalRevenue = allOrders.reduce((acc, o) => acc + parseFloat(o.total || "0"), 0);
-    const totalCommission = allOrders.reduce((acc, o) => acc + parseFloat(o.commission || "0"), 0);
-    
+    const [
+      totalOrdersResult,
+      activeCommercesResult,
+      totalCommercesResult,
+      driversResult,
+      customersResult,
+      revenueResult,
+      pendingOrdersResult,
+      deliveredOrdersResult
+    ] = await Promise.all([
+      db.select({ count: sql<number>`COUNT(*)` }).from(orders),
+      db.select({ count: sql<number>`COUNT(*)` }).from(commerces).where(eq(commerces.status, "active")),
+      db.select({ count: sql<number>`COUNT(*)` }).from(commerces),
+      db.select({ status: drivers.status, count: sql<number>`COUNT(*)` }).from(drivers).groupBy(drivers.status),
+      db.select({ count: sql<number>`COUNT(*)` }).from(customers),
+      db.select({
+        totalRevenue: sql<number>`SUM(CAST(${orders.total} AS REAL))`,
+        totalCommission: sql<number>`SUM(CAST(${orders.commission} AS REAL))`
+      }).from(orders),
+      db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.status, "received")),
+      db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.status, "delivered"))
+    ]);
+
+    const onlineDrivers = driversResult.find(d => d.status === "online")?.count || 0;
+    const busyDrivers = driversResult.find(d => d.status === "busy")?.count || 0;
+    const totalDrivers = driversResult.reduce((acc, d) => acc + d.count, 0);
+
     return {
-      totalOrders: allOrders.length,
-      activeCommerces: activeCommerces.length,
-      totalCommerces: (await db.select().from(commerces)).length,
-      onlineDrivers: allDrivers.filter(d => d.status === "online").length,
-      busyDrivers: allDrivers.filter(d => d.status === "busy").length,
-      totalDrivers: allDrivers.length,
-      totalCustomers: allCustomers.length,
-      totalRevenue: totalRevenue.toFixed(2),
-      totalCommission: totalCommission.toFixed(2),
-      pendingOrders: allOrders.filter(o => o.status === "received").length,
-      deliveredOrders: allOrders.filter(o => o.status === "delivered").length,
+      totalOrders: totalOrdersResult[0].count,
+      activeCommerces: activeCommercesResult[0].count,
+      totalCommerces: totalCommercesResult[0].count,
+      onlineDrivers,
+      busyDrivers,
+      totalDrivers,
+      totalCustomers: customersResult[0].count,
+      totalRevenue: (revenueResult[0].totalRevenue || 0).toFixed(2),
+      totalCommission: (revenueResult[0].totalCommission || 0).toFixed(2),
+      pendingOrders: pendingOrdersResult[0].count,
+      deliveredOrders: deliveredOrdersResult[0].count,
     };
   }),
 
@@ -53,7 +74,14 @@ export const adminRouter = createRouter({
     .input(z.object({ period: z.enum(["day", "week", "month", "year"]) }))
     .query(async ({ input }) => {
       const db = getDb();
-      const allOrders = await db.select().from(orders);
+      
+      const cutoff = new Date();
+      if (input.period === "day") cutoff.setDate(cutoff.getDate() - 30);
+      else if (input.period === "week") cutoff.setDate(cutoff.getDate() - 90);
+      else if (input.period === "month") cutoff.setMonth(cutoff.getMonth() - 24);
+      else cutoff.setFullYear(cutoff.getFullYear() - 10);
+
+      const allOrders = await db.select().from(orders).where(gte(orders.createdAt, cutoff));
       const grouped: Record<string, { date: string; sales: number; orders: number }> = {};
       
       for (const order of allOrders) {
@@ -75,6 +103,70 @@ export const adminRouter = createRouter({
         if (!grouped[key]) grouped[key] = { date: key, sales: 0, orders: 0 };
         grouped[key].sales += parseFloat(order.total);
         grouped[key].orders += 1;
+      }
+      
+      return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
+    }),
+
+  earningsByPeriod: adminQuery
+    .input(z.object({ period: z.enum(["day", "week", "month", "year"]) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      
+      const cutoff = new Date();
+      if (input.period === "day") cutoff.setDate(cutoff.getDate() - 30);
+      else if (input.period === "week") cutoff.setDate(cutoff.getDate() - 90);
+      else if (input.period === "month") cutoff.setMonth(cutoff.getMonth() - 24);
+      else cutoff.setFullYear(cutoff.getFullYear() - 10);
+
+      const deliveredOrders = await db.select().from(orders).where(and(eq(orders.status, "delivered"), gte(orders.createdAt, cutoff)));
+      const orderIds = deliveredOrders.map(o => o.id);
+      
+      const allOrderItems = orderIds.length > 0 ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds)) : [];
+      const allCommerces = await db.select().from(commerces);
+      const allDriverEarnings = await db.select().from(driverEarnings).where(and(eq(driverEarnings.type, "delivery_fee"), gte(driverEarnings.createdAt, cutoff)));
+      
+      const commMap = new Map(allCommerces.map((c) => [c.id, c]));
+      const itemsByOrder = new Map();
+      for (const item of allOrderItems) {
+        if (!itemsByOrder.has(item.orderId)) itemsByOrder.set(item.orderId, []);
+        itemsByOrder.get(item.orderId).push(item);
+      }
+      
+      const grouped: Record<string, { date: string; commission: number; deliveryNet: number }> = {};
+      
+      const getKey = (dateObj: Date) => {
+        if (input.period === "day") return dateObj.toISOString().split("T")[0];
+        if (input.period === "week") {
+          const weekStart = new Date(dateObj);
+          weekStart.setDate(dateObj.getDate() - dateObj.getDay());
+          return weekStart.toISOString().split("T")[0];
+        }
+        if (input.period === "month") return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}`;
+        return String(dateObj.getFullYear());
+      };
+
+      for (const order of deliveredOrders) {
+        const date = new Date(order.createdAt);
+        const key = getKey(date);
+        if (!grouped[key]) grouped[key] = { date: key, commission: 0, deliveryNet: 0 };
+        
+        grouped[key].deliveryNet += parseFloat(order.deliveryFee || "0");
+        
+        const items = itemsByOrder.get(order.id) || [];
+        for (const item of items) {
+          const comm = commMap.get(item.commerceId);
+          const rate = parseFloat(comm?.commissionRate || "10");
+          const itemTotal = parseFloat(item.total || "0");
+          grouped[key].commission += itemTotal * (rate / 100);
+        }
+      }
+      
+      for (const earning of allDriverEarnings) {
+        const date = new Date(earning.createdAt);
+        const key = getKey(date);
+        if (!grouped[key]) grouped[key] = { date: key, commission: 0, deliveryNet: 0 };
+        grouped[key].deliveryNet -= parseFloat(earning.amount || "0");
       }
       
       return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
@@ -107,7 +199,7 @@ export const adminRouter = createRouter({
     .query(async ({ input }) => {
       const db = getDb();
       const allOrderItems = await db.select().from(orderItems);
-      const productStats: Record<number, { id: number; name: string; commerceName: string; quantity: number; revenue: number }> = {};
+      const productStats: Record<number, { id: number; name: string; commerceName: string; sold: number; revenue: number }> = {};
       
       for (const item of allOrderItems) {
         if (!productStats[item.productId]) {
@@ -116,11 +208,11 @@ export const adminRouter = createRouter({
             id: item.productId,
             name: item.productName,
             commerceName: commerce[0]?.name || "",
-            quantity: 0,
+            sold: 0,
             revenue: 0,
           };
         }
-        productStats[item.productId].quantity += item.quantity;
+        productStats[item.productId].sold += item.quantity;
         productStats[item.productId].revenue += parseFloat(item.total);
       }
       
@@ -167,10 +259,17 @@ export const adminRouter = createRouter({
     .input(z.object({ key: z.string(), value: z.string() }))
     .mutation(async ({ input }) => {
       const db = getDb();
-      await db
-        .update(appSettings)
-        .set({ value: input.value, updatedAt: new Date() })
-        .where(eq(appSettings.key, input.key));
+      const existing = await db.select().from(appSettings).where(eq(appSettings.key, input.key));
+      if (existing.length > 0) {
+        await db
+          .update(appSettings)
+          .set({ value: input.value, updatedAt: new Date() })
+          .where(eq(appSettings.key, input.key));
+      } else {
+        await db
+          .insert(appSettings)
+          .values({ key: input.key, value: input.value, updatedAt: new Date() });
+      }
       return { success: true };
     }),
 
@@ -271,6 +370,28 @@ export const adminRouter = createRouter({
     return db.select().from(commerces);
   }),
 
+  listProducts: adminQuery.query(async () => {
+    const db = getDb();
+    return db
+      .select({
+        id: products.id,
+        commerceId: products.commerceId,
+        name: products.name,
+        description: products.description,
+        price: products.price,
+        image: products.image,
+        category: products.category,
+        isFeatured: products.isFeatured,
+        isAvailable: products.isAvailable,
+        preparationTime: products.preparationTime,
+        createdAt: products.createdAt,
+        commerceName: commerces.name,
+      })
+      .from(products)
+      .leftJoin(commerces, eq(products.commerceId, commerces.id))
+      .orderBy(desc(products.createdAt));
+  }),
+
   updateCommerce: adminQuery
     .input(z.object({
       id: z.number(),
@@ -284,11 +405,18 @@ export const adminRouter = createRouter({
       email: z.string().optional(),
       address: z.string().optional(),
       description: z.string().optional(),
+      logo: z.string().optional(),
+      coverImage: z.string().optional(),
+      categoryId: z.number().optional(),
+      openHours: z.string().optional(),
+      rating: z.string().optional(),
+      lat: z.string().optional(),
+      lng: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
       const { id, ...data } = input;
-      const updateData: any = {};
+      const updateData: Partial<typeof commerces.$inferInsert> = {};
       for (const [key, val] of Object.entries(data)) {
         if (val !== undefined) updateData[key] = val;
       }
@@ -296,6 +424,8 @@ export const adminRouter = createRouter({
         await db.update(commerces).set(updateData).where(eq(commerces.id, id));
       }
       const result = await db.select().from(commerces).where(eq(commerces.id, id));
+      emit("admin:dashboard", { type: "dashboard_update" });
+      emit("commerces:global", { type: "commerce_update" });
       return result[0];
     }),
 
@@ -306,18 +436,27 @@ export const adminRouter = createRouter({
       password: z.string().min(4),
       vehicle: z.string().optional(),
       licensePlate: z.string().optional(),
+      commissionRate: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
-      const hash = await bcrypt.hash(input.password, 10);
       const normalizedPhone = input.phone.replace(/\D/g, "");
+      
+      const existing = await db.select().from(drivers).where(eq(drivers.phone, normalizedPhone));
+      if (existing.length > 0) {
+        throw new Error("Ya existe un repartidor con ese número de teléfono");
+      }
+
+      const hash = await bcrypt.hash(input.password, 10);
       const result = await db.insert(drivers).values({
         name: input.name,
         phone: normalizedPhone,
         passwordHash: hash,
         vehicle: input.vehicle || null,
         licensePlate: input.licensePlate || null,
+        commissionRate: input.commissionRate || "80.00",
       }).returning();
+      emit("admin:dashboard", { type: "dashboard_update" });
       return result[0];
     }),
 
@@ -329,39 +468,175 @@ export const adminRouter = createRouter({
       password: z.string().optional(),
       vehicle: z.string().optional(),
       licensePlate: z.string().optional(),
+      commissionRate: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
       const { id, password, phone, ...data } = input;
-      const updateData: any = { ...data };
+      const updateData: Partial<typeof drivers.$inferInsert> = { ...data };
       if (phone !== undefined) {
-        updateData.phone = phone.replace(/\D/g, "");
+        const normalizedPhone = phone.replace(/\D/g, "");
+        const existing = await db.select().from(drivers).where(eq(drivers.phone, normalizedPhone));
+        if (existing.length > 0 && existing[0].id !== id) {
+          throw new Error("Ya existe otro repartidor con ese número de teléfono");
+        }
+        updateData.phone = normalizedPhone;
       }
       if (password) {
         updateData.passwordHash = await bcrypt.hash(password, 10);
       }
       await db.update(drivers).set(updateData).where(eq(drivers.id, id));
       const result = await db.select().from(drivers).where(eq(drivers.id, id));
+      emit("admin:dashboard", { type: "dashboard_update" });
       return result[0];
     }),
+
+  commerceCommissions: adminQuery.query(async () => {
+    const db = getDb();
+    const items = await db
+      .select({
+        commerceId: orderItems.commerceId,
+        totalSales: sql<string>`sum(${orderItems.total})`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(eq(orders.status, "delivered"))
+      .groupBy(orderItems.commerceId);
+
+    const comms = await db.select({
+      id: commerces.id,
+      name: commerces.name,
+      commissionRate: commerces.commissionRate,
+    }).from(commerces);
+
+    const commMap = new Map(comms.map(c => [c.id, c]));
+
+    return items.map(item => {
+      const comm = commMap.get(item.commerceId);
+      const sales = parseFloat(item.totalSales || "0");
+      const rate = parseFloat(comm?.commissionRate || "10.00");
+      return {
+        commerceId: item.commerceId,
+        name: comm?.name || "-",
+        totalSales: sales.toFixed(2),
+        commissionRate: rate.toFixed(2),
+        commissionEarned: (sales * rate / 100).toFixed(2),
+      };
+    }).sort((a, b) => parseFloat(b.commissionEarned) - parseFloat(a.commissionEarned));
+  }),
+
+  driverEarningsBreakdown: adminQuery.query(async () => {
+    const db = getDb();
+    const earnings = await db
+      .select({
+        driverId: driverEarnings.driverId,
+        type: driverEarnings.type,
+        amount: sql<string>`sum(${driverEarnings.amount})`,
+      })
+      .from(driverEarnings)
+      .groupBy(driverEarnings.driverId, driverEarnings.type);
+
+    const d = await db.select({
+      id: drivers.id,
+      name: drivers.name,
+      commissionRate: drivers.commissionRate,
+    }).from(drivers);
+
+    const driverMap = new Map(d.map(r => [r.id, r]));
+    const grouped = new Map<number, { driverId: number; name: string; commissionRate: string; deliveryFee: string; tips: string; bonuses: string; total: string }>();
+
+    for (const e of earnings) {
+      if (!grouped.has(e.driverId)) {
+        const driver = driverMap.get(e.driverId);
+        grouped.set(e.driverId, {
+          driverId: e.driverId,
+          name: driver?.name || "-",
+          commissionRate: driver?.commissionRate || "80.00",
+          deliveryFee: "0.00",
+          tips: "0.00",
+          bonuses: "0.00",
+          total: "0.00",
+        });
+      }
+      const entry = grouped.get(e.driverId)!;
+      const val = parseFloat(e.amount || "0");
+      if (e.type === "delivery_fee") entry.deliveryFee = val.toFixed(2);
+      else if (e.type === "tip") entry.tips = val.toFixed(2);
+      else if (e.type === "bonus") entry.bonuses = val.toFixed(2);
+      entry.total = (parseFloat(entry.total) + val).toFixed(2);
+    }
+
+    return Array.from(grouped.values());
+  }),
+
+  adminDeliveryEarnings: adminQuery.query(async () => {
+    const db = getDb();
+
+    const [feeResult] = await db
+      .select({
+        total: sql<string>`coalesce(sum(${orders.deliveryFee}), '0')`,
+      })
+      .from(orders)
+      .where(eq(orders.status, "delivered"));
+
+    const [payoutResult] = await db
+      .select({
+        total: sql<string>`coalesce(sum(${driverEarnings.amount}), '0')`,
+      })
+      .from(driverEarnings)
+      .where(eq(driverEarnings.type, "delivery_fee"));
+
+    const totalFees = parseFloat(feeResult?.total || "0");
+    const totalPayouts = parseFloat(payoutResult?.total || "0");
+
+    return {
+      totalDeliveryFees: totalFees.toFixed(2),
+      totalDriverPayouts: totalPayouts.toFixed(2),
+      adminNet: (totalFees - totalPayouts).toFixed(2),
+    };
+  }),
 
   createMerchant: adminQuery
     .input(z.object({
       name: z.string().min(1),
       email: z.string().email(),
       password: z.string().min(4),
+      categoryId: z.number().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
       const hash = await bcrypt.hash(input.password, 10);
-      const result = await db.insert(users).values({
-        unionId: `merchant-${Date.now()}`,
-        name: input.name,
-        email: input.email,
-        passwordHash: hash,
-        role: "merchant",
-      }).returning();
-      return result[0];
+      
+      const result = await db.transaction(async (tx) => {
+        const userResult = await tx.insert(users).values({
+          unionId: `merchant-${Date.now()}`,
+          name: input.name,
+          email: input.email,
+          passwordHash: hash,
+          role: "merchant",
+        }).returning();
+        
+        const user = userResult[0];
+        
+        const cats = await tx.select().from(categories).limit(1);
+        const defaultCat = cats.length > 0 ? cats[0].id : 1;
+        const categoryId = input.categoryId ?? defaultCat;
+        
+        await tx.insert(commerces).values({
+          name: input.name,
+          address: "Dirección pendiente",
+          phone: "0000000000",
+          categoryId,
+          status: "pending",
+          merchantUserId: user.id,
+        });
+        
+        return user;
+      });
+      
+      emit("admin:dashboard", { type: "dashboard_update" });
+      emit("commerces:global", { type: "commerce_update" });
+      return result;
     }),
 
   createCommerce: adminQuery
@@ -394,6 +669,8 @@ export const adminRouter = createRouter({
           commissionRate: "8.00",
           merchantUserId: owner.id,
         }).returning();
+        emit("admin:dashboard", { type: "dashboard_update" });
+        emit("commerces:global", { type: "commerce_update" });
         return commerce;
       } catch (err) {
         console.error("[admin.createCommerce] error:", err);
@@ -484,6 +761,7 @@ export const adminRouter = createRouter({
         "received",
         "accepted",
         "preparing",
+        "ready_for_pickup",
         "driver_assigned",
         "picked_up",
         "on_the_way",
@@ -497,10 +775,15 @@ export const adminRouter = createRouter({
       const db = getDb();
 
       const result = await db.transaction(async (tx) => {
-        const updateData: any = { status: input.status, updatedAt: new Date() };
+        const updateData: Partial<typeof orders.$inferInsert> = { status: input.status, updatedAt: new Date() };
         if (input.driverId) updateData.driverId = input.driverId;
 
         await tx.update(orders).set(updateData).where(eq(orders.id, input.id));
+        
+        // Sync the individual commerce statuses
+        await tx.update(orderCommerceStatus)
+          .set({ status: input.status, updatedAt: new Date() })
+          .where(eq(orderCommerceStatus.orderId, input.id));
 
         await tx.insert(orderStatusHistory).values({
           orderId: input.id,
@@ -516,6 +799,7 @@ export const adminRouter = createRouter({
         return updated[0];
       });
 
+      emit("admin:dashboard", { type: "dashboard_update" });
       return result;
     }),
 
@@ -555,6 +839,7 @@ export const adminRouter = createRouter({
         return updated[0];
       });
 
+      emit("admin:dashboard", { type: "dashboard_update" });
       return result;
     }),
 
@@ -600,6 +885,7 @@ export const adminRouter = createRouter({
         await tx.delete(products).where(eq(products.commerceId, input.id));
         await tx.delete(commerces).where(eq(commerces.id, input.id));
       });
+      emit("admin:dashboard", { type: "dashboard_update" });
       return { success: true };
     }),
 
@@ -612,6 +898,7 @@ export const adminRouter = createRouter({
         await tx.delete(driverEarnings).where(eq(driverEarnings.driverId, input.id));
         await tx.delete(drivers).where(eq(drivers.id, input.id));
       });
+      emit("admin:dashboard", { type: "dashboard_update" });
       return { success: true };
     }),
 

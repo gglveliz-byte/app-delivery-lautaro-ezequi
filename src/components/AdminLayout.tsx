@@ -25,7 +25,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       {/* Sidebar — desktop */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col fixed h-full z-30">
         <div className="p-6 border-b border-gray-100">
@@ -61,7 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 lg:ml-64 pb-16 lg:pb-0">
+      <main className="flex-1 lg:ml-64 pb-14 lg:pb-0 flex flex-col overflow-y-auto lg:overflow-hidden">
         {children}
       </main>
 

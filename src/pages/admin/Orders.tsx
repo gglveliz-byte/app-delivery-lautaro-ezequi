@@ -3,8 +3,12 @@ import { useNavigate } from "react-router";
 import {
   ArrowLeft,
   Search,
+  Eye,
+  X,
+  Package,
 } from "lucide-react";
 import { useAdminOrders } from "@/hooks/useDeliveryData";
+import { trpc } from "@/providers/trpc";
 import AdminLayout from "@/components/AdminLayout";
 
 const statusColors: Record<string, string> = {
@@ -17,13 +21,33 @@ const statusColors: Record<string, string> = {
   on_the_way: "bg-orange-100 text-orange-800",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
+  cancelled: "bg-red-100 text-red-800",
+};
+
+const filterLabels: Record<string, string> = {
+  all: "Todos",
+  received: "Nuevos",
+  accepted: "Aceptados",
+  preparing: "Preparando",
+  ready_for_pickup: "Listos",
+  driver_assigned: "Rep. Asignado",
+  picked_up: "Retirados",
+  on_the_way: "En camino",
+  delivered: "Entregados",
+  cancelled: "Cancelados",
 };
 
 export default function AdminOrders() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  
   const { data: orders, loading } = useAdminOrders();
+  const { data: orderDetails, isLoading: detailsLoading, isError: detailsError } = trpc.admin.orderDetail.useQuery(
+    { id: selectedOrderId! },
+    { enabled: !!selectedOrderId }
+  );
 
   const filtered = orders.filter((o: any) => {
     const matchesSearch =
@@ -36,97 +60,201 @@ export default function AdminOrders() {
 
   return (
     <AdminLayout>
-      <header className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="flex items-center gap-3">
+      <header className="bg-white border-b border-gray-200 px-3 lg:px-4 py-2 lg:py-4">
+        <div className="flex items-center gap-2 lg:gap-3">
           <button onClick={() => navigate("/admin")} className="touch-target">
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
+            <ArrowLeft className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
           </button>
-          <h1 className="text-lg font-bold text-gray-800">Pedidos</h1>
+          <h1 className="text-base lg:text-lg font-bold text-gray-800">Pedidos</h1>
         </div>
       </header>
 
-      <div className="p-4 max-w-6xl mx-auto">
-        <div className="flex gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por ID o cliente..."
-              className="w-full h-10 pl-9 pr-4 bg-white rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
-            />
+      <div className="lg:flex-1 lg:overflow-hidden p-2 lg:p-4">
+        <div className="lg:h-full lg:flex lg:flex-col max-w-6xl mx-auto">
+          <div className="flex gap-2 lg:gap-3 mb-3 lg:mb-4 lg:shrink-0">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por ID o cliente..."
+                className="w-full h-9 lg:h-10 pl-9 pr-4 bg-white rounded-xl border border-gray-200 text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar">
-          {["all", "received", "preparing", "ready_for_pickup", "on_the_way", "delivered"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                filter === f
-                  ? "bg-[#2E7D32] text-white"
-                  : "bg-white text-gray-600 border border-gray-200"
-              }`}
-            >
-              {f === "all" ? "Todos" : f === "received" ? "Nuevos" : f === "preparing" ? "Preparando" : f === "ready_for_pickup" ? "Listos" : f === "on_the_way" ? "En camino" : "Entregados"}
-            </button>
-          ))}
-        </div>
+          <div className="flex gap-1.5 lg:gap-2 mb-3 lg:mb-4 overflow-x-auto no-scrollbar pb-1 lg:shrink-0">
+            {["all", "received", "accepted", "preparing", "ready_for_pickup", "driver_assigned", "picked_up", "on_the_way", "delivered", "cancelled"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-2 lg:px-3 py-1 lg:py-1.5 rounded-full text-[10px] lg:text-xs font-medium whitespace-nowrap transition-colors ${
+                  filter === f
+                    ? "bg-[#2E7D32] text-white"
+                    : "bg-white text-gray-600 border border-gray-200"
+                }`}
+              >
+                {filterLabels[f]}
+              </button>
+            ))}
+          </div>
 
-        <div className="bg-white rounded-xl card-shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium">ID</th>
-                  <th className="text-left px-4 py-3 font-medium">Cliente</th>
-                  <th className="text-left px-4 py-3 font-medium">Comercio</th>
-                  <th className="text-left px-4 py-3 font-medium">Repartidor</th>
-                  <th className="text-left px-4 py-3 font-medium">Total</th>
-                  <th className="text-left px-4 py-3 font-medium">Estado</th>
-                  <th className="text-left px-4 py-3 font-medium">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {loading ? (
+          <div className="bg-white rounded-xl card-shadow overflow-hidden lg:flex-1 lg:min-h-0">
+            <div className="overflow-x-auto lg:h-full lg:overflow-y-auto">
+              <table className="w-full text-[11px] lg:text-sm">
+                <thead className="bg-gray-50 text-gray-600 lg:sticky lg:top-0 lg:z-10">
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                      Cargando pedidos...
-                    </td>
+                    <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">ID</th>
+                    <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Cliente</th>
+                    <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Comercio</th>
+                    <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Repartidor</th>
+                    <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Total</th>
+                    <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Estado</th>
+                    <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Fecha</th>
+                    <th className="text-center px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Acciones</th>
                   </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                      No hay pedidos
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((o: any) => (
-                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-gray-800">#{o.id}</td>
-                      <td className="px-4 py-3">
-                        <p className="text-gray-800">{o.customerName}</p>
-                        <p className="text-xs text-gray-500">{o.customerPhone}</p>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-sm">
+                        Cargando pedidos...
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{o.commerceName}</td>
-                      <td className="px-4 py-3 text-gray-600">{o.driverName || "-"}</td>
-                      <td className="px-4 py-3 font-medium text-gray-800">${o.total}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[o.status] || "bg-gray-100 text-gray-600"}`}>
-                          {(o.status || "").replace(/_/g, " ")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleString() : "-"}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-sm">
+                        No hay pedidos
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((o: any) => (
+                      <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium text-gray-800">#{o.id}</td>
+                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
+                          <p className="text-gray-800 leading-tight">{o.customerName}</p>
+                          <p className="text-[10px] lg:text-xs text-gray-500 leading-tight">{o.customerPhone}</p>
+                        </td>
+                        <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{o.commerceName}</td>
+                        <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{o.driverName || "-"}</td>
+                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium text-gray-800">${parseFloat(o.total || "0").toFixed(2)}</td>
+                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
+                          <span className={`px-1.5 lg:px-2 py-0.5 rounded-full text-[10px] lg:text-xs font-medium ${statusColors[o.status] || "bg-gray-100 text-gray-600"}`}>
+                            {(o.status || "").replace(/_/g, " ")}
+                          </span>
+                        </td>
+                        <td className="hidden lg:table-cell px-4 py-3 text-gray-500 text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleString() : "-"}</td>
+                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 text-center">
+                          <button onClick={() => setSelectedOrderId(o.id)} className="p-1.5 lg:p-2 text-[#2E7D32] hover:bg-green-50 rounded-lg transition-colors" title="Ver detalles">
+                            <Eye className="w-4 h-4 lg:w-5 lg:h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Details Modal */}
+      {selectedOrderId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Package className="w-5 h-5 text-[#2E7D32]" />
+                Detalles del Pedido #{selectedOrderId}
+              </h2>
+              <button onClick={() => setSelectedOrderId(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto flex-1">
+              {detailsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-[#2E7D32] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : detailsError || !orderDetails ? (
+                <div className="flex justify-center py-8 text-red-500 text-sm font-medium">
+                  Error al cargar los detalles del pedido. Intente de nuevo.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Status & Customer */}
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Estado</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[orderDetails.status] || "bg-gray-100 text-gray-600"}`}>
+                        {(orderDetails.status || "").replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Cliente</span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {orderDetails.customer ? `${orderDetails.customer.firstName} ${orderDetails.customer.lastName}` : "Invitado"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Teléfono</span>
+                      <span className="text-sm text-gray-800">{orderDetails.customerPhone}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Dirección de Entrega</span>
+                      <span className="text-sm text-gray-800 text-right max-w-[60%]">{orderDetails.deliveryAddress}</span>
+                    </div>
+                  </div>
+
+                  {/* Items */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-3 border-b border-gray-100 pb-2">Productos ({orderDetails.items.length})</h3>
+                    <div className="space-y-3">
+                      {orderDetails.items.map((item: any) => (
+                        <div key={item.id} className="flex justify-between items-start">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">
+                              <span className="text-[#2E7D32] mr-1">{item.quantity}x</span>
+                              {item.productName}
+                            </p>
+                            {item.notes && <p className="text-xs text-gray-500 mt-0.5">Nota: {item.notes}</p>}
+                          </div>
+                          <span className="text-sm font-medium text-gray-800">${parseFloat(item.total).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="border-t border-gray-200 pt-3 space-y-2">
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Subtotal</span>
+                      <span>${parseFloat(orderDetails.subtotal || "0").toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Costo de envío</span>
+                      <span>${parseFloat(orderDetails.deliveryFee || "0").toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-bold text-gray-800 pt-2 border-t border-gray-100">
+                      <span>Total</span>
+                      <span className="text-[#2E7D32]">${parseFloat(orderDetails.total || "0").toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button onClick={() => setSelectedOrderId(null)} className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

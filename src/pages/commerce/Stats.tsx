@@ -44,25 +44,25 @@ export default function CommerceStats() {
         </div>
       </header>
 
-      <div className="p-4 max-w-4xl mx-auto space-y-4">
+      <div className="p-3 lg:p-4 max-w-4xl mx-auto space-y-3 lg:space-y-4">
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl card-shadow p-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3">
+          <div className="bg-white rounded-xl card-shadow p-3 lg:p-4">
             <DollarSign className="w-5 h-5 text-[#2E7D32] mb-2" />
             <p className="text-xl font-bold text-gray-800">${stats.totalSales}</p>
             <p className="text-xs text-gray-500">Ventas totales</p>
           </div>
-          <div className="bg-white rounded-xl card-shadow p-4">
+          <div className="bg-white rounded-xl card-shadow p-3 lg:p-4">
             <ShoppingBag className="w-5 h-5 text-[#2E7D32] mb-2" />
             <p className="text-xl font-bold text-gray-800">{stats.totalOrders}</p>
             <p className="text-xs text-gray-500">Pedidos entregados</p>
           </div>
-          <div className="bg-white rounded-xl card-shadow p-4">
+          <div className="bg-white rounded-xl card-shadow p-3 lg:p-4">
             <TrendingUp className="w-5 h-5 text-[#2E7D32] mb-2" />
             <p className="text-xl font-bold text-gray-800">${stats.avgTicket}</p>
             <p className="text-xs text-gray-500">Ticket promedio</p>
           </div>
-          <div className="bg-white rounded-xl card-shadow p-4">
+          <div className="bg-white rounded-xl card-shadow p-3 lg:p-4">
             <Star className="w-5 h-5 text-[#FFC107] mb-2" />
             <p className="text-xl font-bold text-gray-800">{stats.totalProducts}</p>
             <p className="text-xs text-gray-500">Productos</p>
@@ -70,7 +70,7 @@ export default function CommerceStats() {
         </div>
 
         {/* Bar Chart */}
-        <div className="bg-white rounded-xl card-shadow p-4">
+        <div className="bg-white rounded-xl card-shadow p-3 lg:p-4">
           <h2 className="text-sm font-semibold text-gray-800 mb-4">Ventas por día (entregados)</h2>
           <div className="flex items-end justify-between gap-2 h-40">
             {stats.dailySales.map((d: any) => (
@@ -88,7 +88,7 @@ export default function CommerceStats() {
 
         {/* Top Products */}
         <div className="bg-white rounded-xl card-shadow">
-          <div className="p-4 border-b border-gray-100">
+          <div className="p-3 lg:p-4 border-b border-gray-100">
             <h2 className="text-sm font-semibold text-gray-800">Productos más vendidos</h2>
           </div>
           {stats.topProducts.length === 0 ? (
@@ -98,7 +98,7 @@ export default function CommerceStats() {
           ) : (
             <div className="divide-y divide-gray-50">
               {stats.topProducts.map((product: any, i: number) => (
-                <div key={product.name} className="p-4 flex items-center justify-between">
+                <div key={product.name} className="p-3 lg:p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-600">
                       {i + 1}

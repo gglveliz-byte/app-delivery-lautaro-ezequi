@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Search, X, ArrowLeft, Star, Clock } from "lucide-react";
+import { Search, X, ArrowLeft, Star, Clock, Plus, Loader2 } from "lucide-react";
 import { useCategories, useCommerces, useFeaturedProducts } from "@/hooks/useDeliveryData";
-import { BottomNav } from "./Home";
+import { useCart } from "@/hooks/useCart";
+import { CustomerBottomNav } from "@/components/CustomerBottomNav";
 import { safeImage } from "@/lib/imageUtils";
 
 export default function CustomerSearch() {
@@ -11,9 +12,9 @@ export default function CustomerSearch() {
   const categoryId = searchParams.get("category");
   const queryParam = searchParams.get("q");
 
-  const { data: categories } = useCategories();
-  const { data: commerces } = useCommerces();
-  const { data: featuredProducts } = useFeaturedProducts();
+  const { data: categories, loading: categoriesLoading } = useCategories();
+  const { data: commerces, loading: commercesLoading } = useCommerces();
+  const { data: featuredProducts, loading: productsLoading } = useFeaturedProducts();
 
   const [query, setQuery] = useState(queryParam || "");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(
@@ -28,7 +29,7 @@ export default function CustomerSearch() {
     if (queryParam) setQuery(queryParam);
   }, [queryParam]);
 
-  const filteredCommerces = commerces.filter((c) => {
+  const filteredCommerces = (commerces || []).filter((c) => {
     const matchesQuery =
       !query || c.name.toLowerCase().includes(query.toLowerCase());
     const matchesCategory =
@@ -36,11 +37,13 @@ export default function CustomerSearch() {
     return matchesQuery && matchesCategory;
   });
 
-  const filteredProducts = featuredProducts.filter((p) => {
+  const filteredProducts = (featuredProducts || []).filter((p) => {
     const matchesQuery =
       !query || p.name.toLowerCase().includes(query.toLowerCase());
     return matchesQuery;
   });
+
+  const isLoading = categoriesLoading || commercesLoading || productsLoading;
 
   return (
     <div className="mobile-container bg-gray-50 min-h-screen pb-20">
@@ -102,7 +105,11 @@ export default function CustomerSearch() {
 
       {/* Results */}
       <div className="px-4 mt-4">
-        {!query && !selectedCategory ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="w-8 h-8 text-[#2E7D32] animate-spin" />
+          </div>
+        ) : !query && !selectedCategory ? (
           <>
             <h2 className="text-base font-semibold text-gray-800 mb-3">Productos populares</h2>
             <div className="grid grid-cols-2 gap-3">
@@ -147,13 +154,14 @@ export default function CustomerSearch() {
         )}
       </div>
 
-      <BottomNav active="search" />
+      <CustomerBottomNav active="search" />
     </div>
   );
 }
 
 function ProductSearchCard({ product }: { product: any }) {
   const navigate = useNavigate();
+  const { addItem } = useCart();
 
   return (
     <div
@@ -162,12 +170,30 @@ function ProductSearchCard({ product }: { product: any }) {
     >
       <div
         className="h-28 bg-gray-100 bg-cover bg-center"
-        style={{ backgroundImage: `url(${product.image})` }}
+        style={{ backgroundImage: `url(${safeImage(product.image, "product")})` }}
       />
       <div className="p-2.5">
         <p className="text-xs text-gray-500 truncate">{product.commerceName}</p>
         <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
-        <p className="text-sm font-bold text-[#2E7D32] mt-1">${product.price}</p>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-sm font-bold text-[#2E7D32]">${product.price}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              addItem({
+                productId: product.id,
+                commerceId: product.commerceId,
+                name: product.name,
+                price: product.price,
+                image: product.image,
+                commerceName: product.commerceName,
+              });
+            }}
+            className="w-7 h-7 bg-[#2E7D32] text-white rounded-lg flex items-center justify-center hover:bg-[#1B5E20] active:scale-90 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

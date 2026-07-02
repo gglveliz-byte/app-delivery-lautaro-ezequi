@@ -52,7 +52,7 @@ export const orderRouter = createRouter({
         });
       }
 
-      const total = subtotal + parseFloat(input.deliveryFee) + parseFloat(input.commission);
+      const total = subtotal + parseFloat(input.deliveryFee);
 
       const result = await db.transaction(async (tx) => {
         const [newOrder] = await tx.insert(orders).values({
@@ -89,7 +89,6 @@ export const orderRouter = createRouter({
         });
 
         // Create per-commerce status rows (preparing by default)
-        const commerceIds = [...new Set(itemsData.map(i => i.commerceId))];
         for (const cId of commerceIds) {
           await tx.insert(orderCommerceStatus).values({
             orderId,
@@ -98,13 +97,15 @@ export const orderRouter = createRouter({
           });
         }
 
-        // Emit SSE events to notify commerces about new order
-        commerceIds.forEach(cId => {
-          emit(`commerce:${cId}`, { type: "new_order", orderId });
-        });
-
         return newOrder;
       });
+
+      // Emit SSE events to notify commerces about new order
+      commerceIds.forEach(cId => {
+        emit(`commerce:${cId}`, { type: "new_order", orderId: result.id });
+      });
+
+      emit("admin:dashboard", { type: "dashboard_update" });
 
       return { success: true, order: result };
     }),
@@ -282,11 +283,13 @@ export const orderRouter = createRouter({
 
         const updated = await tx.select().from(orders).where(eq(orders.id, input.id));
 
-        // Emit SSE event to notify order status change
-        emit(`order:${input.id}`, { type: "status_update", status: input.status, driverId: input.driverId });
-
         return updated[0];
       });
+
+      // Emit SSE event to notify order status change
+      emit(`order:${input.id}`, { type: "status_update", status: input.status, driverId: input.driverId });
+
+      emit("admin:dashboard", { type: "dashboard_update" });
 
       // Notify online drivers when order is ready for pickup
       if (input.status === "ready_for_pickup") {
@@ -341,22 +344,24 @@ export const orderRouter = createRouter({
             status: "ready_for_pickup",
             notes: "Todos los comercios listos para retirar",
           });
-
-          // Notify online drivers
-          const onlineDrivers = await tx.select({ id: drivers.id }).from(drivers).where(eq(drivers.status, "online"));
-          onlineDrivers.forEach((driver) => {
-            emit(`driver:${driver.id}`, { type: "new_available", orderId: input.orderId });
-          });
-
-          emit(`order:${input.orderId}`, { type: "status_update", status: "ready_for_pickup" });
         }
-
-        // Emit commerce ready event
-        emit(`commerce:${input.commerceId}`, { type: "commerce_ready", orderId: input.orderId });
-        emit(`order:${input.orderId}`, { type: "commerce_ready", commerceId: input.commerceId });
 
         return { allReady };
       });
+
+      if (result.allReady) {
+        // Notify online drivers
+        const onlineDrivers = await db.select({ id: drivers.id }).from(drivers).where(eq(drivers.status, "online"));
+        onlineDrivers.forEach((driver) => {
+          emit(`driver:${driver.id}`, { type: "new_available", orderId: input.orderId });
+        });
+
+        emit(`order:${input.orderId}`, { type: "status_update", status: "ready_for_pickup" });
+      }
+
+      // Emit commerce ready event
+      emit(`commerce:${input.commerceId}`, { type: "commerce_ready", orderId: input.orderId });
+      emit(`order:${input.orderId}`, { type: "commerce_ready", commerceId: input.commerceId });
 
       return result;
     }),
@@ -373,6 +378,9 @@ export const orderRouter = createRouter({
 
       const orderIds = [...new Set(items.map(i => i.orderId))];
       const result = [];
+      
+      const [commerce] = await db.select().from(commerces).where(eq(commerces.id, input.commerceId));
+      const commissionRate = parseFloat(commerce?.commissionRate || "10");
 
       // Get per-commerce statuses for these orders
       const commerceStatuses = await db
@@ -384,6 +392,9 @@ export const orderRouter = createRouter({
         const order = await db.select().from(orders).where(eq(orders.id, oid));
         if (order.length > 0) {
           const orderItemsForOrder = items.filter(i => i.orderId === oid);
+          const commerceTotal = orderItemsForOrder.reduce((sum, i) => sum + parseFloat(i.total), 0);
+          const commerceCommission = (commerceTotal * commissionRate / 100).toFixed(2);
+          
           let customerName = "";
           if (order[0].customerId) {
             const cust = await db.select().from(customers).where(eq(customers.id, order[0].customerId));
@@ -393,7 +404,14 @@ export const orderRouter = createRouter({
           }
           // Find this commerce's status for this order
           const myCommerceStatus = commerceStatuses.find(cs => cs.orderId === oid && cs.commerceId === input.commerceId);
-          result.push({ ...order[0], items: orderItemsForOrder, customerName, myCommerceStatus: myCommerceStatus?.status || "preparing" });
+          result.push({ 
+            ...order[0], 
+            items: orderItemsForOrder, 
+            customerName, 
+            myCommerceStatus: myCommerceStatus?.status || "preparing",
+            total: commerceTotal.toFixed(2),
+            commerceCommission
+          });
         }
       }
       return result;

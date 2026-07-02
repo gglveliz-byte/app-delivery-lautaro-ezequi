@@ -75,10 +75,10 @@ app.get("/api/events/orders/:orderId", async (c) => {
 
     try {
       while (!isClosed()) {
-        await stream.sleep(10000);
+        await stream.sleep(15000);
         if (isClosed()) break;
         try {
-          stream.writeSSE({ data: "ping", event: "ping" });
+          stream.writeSSE({ data: JSON.stringify({ type: "ping" }), event: "update" });
         } catch {}
       }
     } finally {
@@ -94,10 +94,10 @@ app.get("/api/events/commerce/:commerceId", async (c) => {
 
     try {
       while (!isClosed()) {
-        await stream.sleep(10000);
+        await stream.sleep(15000);
         if (isClosed()) break;
         try {
-          stream.writeSSE({ data: "ping", event: "ping" });
+          stream.writeSSE({ data: JSON.stringify({ type: "ping" }), event: "update" });
         } catch {}
       }
     } finally {
@@ -113,10 +113,10 @@ app.get("/api/events/driver/:driverId", async (c) => {
 
     try {
       while (!isClosed()) {
-        await stream.sleep(10000);
+        await stream.sleep(15000);
         if (isClosed()) break;
         try {
-          stream.writeSSE({ data: "ping", event: "ping" });
+          stream.writeSSE({ data: JSON.stringify({ type: "ping" }), event: "update" });
         } catch {}
       }
     } finally {
@@ -126,16 +126,49 @@ app.get("/api/events/driver/:driverId", async (c) => {
 });
 
 // SSE endpoint global para productos
+app.get("/api/events/admin-dashboard", async (c) => {
+  return streamSSE(c, async (stream) => {
+    const { cleanup, isClosed } = setupSSE(c, "admin:dashboard", stream);
+    try {
+      while (!isClosed()) {
+        await stream.sleep(30000);
+        if (isClosed()) break;
+        stream.writeSSE({ data: JSON.stringify({ type: "ping" }), event: "update" });
+      }
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+app.get("/api/events/commerces", async (c) => {
+  return streamSSE(c, async (stream) => {
+    const { cleanup, isClosed } = setupSSE(c, "commerces:global", stream);
+
+    try {
+      while (!isClosed()) {
+        await stream.sleep(15000);
+        if (isClosed()) break;
+        try {
+          stream.writeSSE({ data: JSON.stringify({ type: "ping" }), event: "update" });
+        } catch {}
+      }
+    } finally {
+      cleanup();
+    }
+  });
+});
+
 app.get("/api/events/products", async (c) => {
   return streamSSE(c, async (stream) => {
     const { cleanup, isClosed } = setupSSE(c, "products:global", stream);
 
     try {
       while (!isClosed()) {
-        await stream.sleep(10000);
+        await stream.sleep(15000);
         if (isClosed()) break;
         try {
-          stream.writeSSE({ data: "ping", event: "ping" });
+          stream.writeSSE({ data: JSON.stringify({ type: "ping" }), event: "update" });
         } catch {}
       }
     } finally {

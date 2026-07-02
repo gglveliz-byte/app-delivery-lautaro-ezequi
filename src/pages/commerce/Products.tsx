@@ -22,6 +22,9 @@ export default function CommerceProducts() {
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "", image: "", isFeatured: "no", isAvailable: "yes" });
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState<any>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { commerceId } = useMerchantCommerceId();
   const { data: products, loading } = useProductsByCommerce(commerceId || 0);
@@ -78,10 +81,35 @@ export default function CommerceProducts() {
     } catch { }
   };
 
-  const deleteProduct = async (id: number) => {
-    if (!confirm("Eliminar producto?")) return;
+  const closeConfirm = () => {
+    setConfirmingDelete(null);
+    setDeleteError(null);
+    setDeleting(false);
+  };
+
+  const openDeleteConfirm = (p: any) => {
+    setConfirmingDelete(p);
+    setDeleteError(null);
+    setDeleting(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmingDelete) return;
+    setDeleting(true);
     try {
-      await deleteProductMutation.mutateAsync({ id });
+      await deleteProductMutation.mutateAsync({ id: confirmingDelete.id });
+      closeConfirm();
+    } catch (err: any) {
+      setDeleteError(err?.message || "Error al eliminar el producto");
+      setDeleting(false);
+    }
+  };
+
+  const markAsInactive = async () => {
+    if (!confirmingDelete) return;
+    try {
+      await updateProduct.mutateAsync({ id: confirmingDelete.id, isAvailable: "no" });
+      closeConfirm();
     } catch { }
   };
 
@@ -103,21 +131,21 @@ export default function CommerceProducts() {
         </div>
       </header>
 
-      <div className="p-4 max-w-4xl mx-auto">
+      <div className="p-3 lg:p-4 max-w-4xl mx-auto">
         {loading ? (
           <div className="text-center py-12 text-gray-500">Cargando...</div>
         ) : !commerceId ? (
           <div className="text-center py-12 text-gray-500">No se encontró tu comercio. Contactá al administrador.</div>
         ) : (
           <>
-            <div className="relative mb-4">
+            <div className="relative mb-3 lg:mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar productos..." className="w-full h-10 pl-9 pr-4 bg-white rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:gap-3">
               {filtered.map((p) => (
-                <div key={p.id} className="bg-white rounded-xl card-shadow p-4 flex gap-3">
+                <div key={p.id} className="bg-white rounded-xl card-shadow p-3 lg:p-4 flex gap-2 lg:gap-3">
                   <img src={p.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop"} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%228%22 fill=%22%23fefce8%22/%3E%3Crect x=%2212%22 y=%2214%22 width=%2224%22 height=%2226%22 rx=%222%22 fill=%22%23fef9c3%22/%3E%3Crect x=%2212%22 y=%2214%22 width=%2224%22 height=%228%22 rx=%221%22 fill=%22%23fef08a%22/%3E%3Cline x1=%2212%22 y1=%2220%22 x2=%2236%22 y2=%2220%22 stroke=%22%23eab308%22 stroke-width=%221%22/%3E%3Crect x=%2220%22 y=%2226%22 width=%228%22 height=%2214%22 rx=%221%22 fill=%22%23fef08a%22/%3E%3C/svg%3E' }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
@@ -127,7 +155,7 @@ export default function CommerceProducts() {
                       </div>
                       <div className="flex gap-1 ml-2">
                         <button onClick={() => openEdit(p)} className="p-1 text-gray-400 hover:text-[#2E7D32]"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => deleteProduct(p.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => openDeleteConfirm(p)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                     <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{p.description}</p>
@@ -198,6 +226,54 @@ export default function CommerceProducts() {
                 {saving ? "Guardando..." : editing ? "Guardar cambios" : "Crear producto"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {confirmingDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6">
+            {deleteError ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-red-600">No se puede eliminar</h2>
+                  <button onClick={closeConfirm} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">
+                  El producto <strong>{confirmingDelete.name}</strong> tiene historial de pedidos asociado.
+                </p>
+                <p className="text-sm text-gray-500 mb-5">
+                  No se puede eliminar, pero puedes marcarlo como inactivo para que no aparezca en la tienda.
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={markAsInactive} className="flex-1 h-10 bg-[#2E7D32] text-white text-sm font-medium rounded-lg hover:bg-[#1B5E20]">
+                    Marcar como inactivo
+                  </button>
+                  <button onClick={closeConfirm} className="flex-1 h-10 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-gray-800">Eliminar producto</h2>
+                  <button onClick={closeConfirm} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                </div>
+                <p className="text-sm text-gray-600 mb-1">
+                  ¿Estás seguro de eliminar <strong>{confirmingDelete.name}</strong>?
+                </p>
+                <p className="text-xs text-gray-400 mb-5">Esta acción no se puede deshacer.</p>
+                <div className="flex gap-2">
+                  <button onClick={confirmDelete} disabled={deleting} className="flex-1 h-10 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50">
+                    {deleting ? "Eliminando..." : "Eliminar"}
+                  </button>
+                  <button onClick={closeConfirm} className="flex-1 h-10 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
