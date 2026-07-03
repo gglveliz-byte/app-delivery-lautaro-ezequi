@@ -11,6 +11,26 @@
     <link rel="apple-touch-icon" href="/logotipo.jpeg" />
     <meta name="theme-color" content="#2E7D32" />
     <meta name="description" content="Plataforma de delivery multi-comercio" />
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        var isBackoffice = 
+          path.startsWith("/admin") || 
+          path.startsWith("/driver") || 
+          path === "/commerce" || 
+          path.startsWith("/commerce/orders") || 
+          path.startsWith("/commerce/products") || 
+          path.startsWith("/commerce/stats") || 
+          path.startsWith("/commerce/profile") || 
+          path === "/login" || 
+          path === "/descargar-socios";
+        
+        var link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = isBackoffice ? '/manifest-partners.json' : '/manifest.json';
+        document.head.appendChild(link);
+      })();
+    </script>
   </head>
   <body>
     <div id="root" class="notranslate"></div>

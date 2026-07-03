@@ -2,7 +2,6 @@ import { Routes, Route } from 'react-router'
 import { lazy, Suspense, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import SessionGuard from '@/components/SessionGuard'
-import { DynamicManifest } from '@/components/DynamicManifest'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { QueryProvider } from '@/providers/QueryProvider'
 import { trpcMutate } from '@/hooks/useDeliveryData'
@@ -78,7 +77,6 @@ export default function App() {
     <QueryProvider>
       <Suspense fallback={<LoadingFallback />}>
         <SessionRefresh />
-        <DynamicManifest />
         <Routes>
         {/* Customer App Routes */}
         <Route path="/" element={<Welcome />} />
