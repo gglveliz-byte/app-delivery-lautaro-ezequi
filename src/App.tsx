@@ -19,6 +19,7 @@ const Cart = lazy(() => import('./pages/customer/Cart'))
 const OrderTracking = lazy(() => import('./pages/customer/OrderTracking'))
 const Chat = lazy(() => import('./pages/customer/Chat'))
 const CustomerProfile = lazy(() => import('./pages/customer/Profile'))
+const DownloadApp = lazy(() => import('./pages/customer/DownloadApp'))
 
 // Driver app
 const DriverHome = lazy(() => import('./pages/driver/DriverHome'))
@@ -27,6 +28,7 @@ const DriverEarnings = lazy(() => import('./pages/driver/DriverEarnings'))
 const DriverProfile = lazy(() => import('./pages/driver/DriverProfile'))
 const DriverChat = lazy(() => import('./pages/driver/DriverChat'))
 const DriverHistory = lazy(() => import('./pages/driver/DriverHistory'))
+const DownloadPartners = lazy(() => import('./pages/driver/DownloadPartners'))
 
 // Commerce dashboard
 const CommerceDashboard = lazy(() => import('./pages/commerce/Dashboard'))
@@ -80,6 +82,7 @@ export default function App() {
         <Routes>
         {/* Customer App Routes */}
         <Route path="/" element={<Welcome />} />
+        <Route path="/descargar" element={<DownloadApp />} />
         <Route path="/register" element={<Register />} />
         <Route path="/customer-login" element={<CustomerLogin />} />
         <Route path="/home" element={<SessionGuard role="customer"><CustomerHome /></SessionGuard>} />
@@ -113,8 +116,9 @@ export default function App() {
         <Route path="/admin/products" element={<SessionGuard role="admin"><AdminProducts /></SessionGuard>} />
         <Route path="/admin/settings" element={<SessionGuard role="admin"><AdminSettings /></SessionGuard>} />
 
-        {/* Auth */}
+        {/* Auth & Downloads */}
         <Route path="/login" element={<Login />} />
+        <Route path="/descargar-socios" element={<DownloadPartners />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <PWAInstallBanner />

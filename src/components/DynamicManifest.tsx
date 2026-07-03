@@ -16,7 +16,8 @@ export function DynamicManifest() {
       path.startsWith("/commerce/products") ||
       path.startsWith("/commerce/stats") ||
       path.startsWith("/commerce/profile") ||
-      path === "/login"; // The backoffice login
+      path === "/login" || // The backoffice login
+      path === "/descargar-socios";
 
     const manifestUrl = isBackoffice ? "/manifest-partners.json" : "/manifest.json";
 
