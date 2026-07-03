@@ -506,7 +506,7 @@ export default function OrderTracking() {
             {order.items?.map((item: any) => (
               <div key={item.id} className="flex justify-between text-sm">
                 <span className="text-gray-600">
-                  {item.quantity}x {item.productName}
+                  {Number(item.quantity) % 1 === 0 ? item.quantity : Number(item.quantity).toFixed(2)}x {item.productName}
                 </span>
                 <span className="text-gray-800 font-medium">${item.total}</span>
               </div>

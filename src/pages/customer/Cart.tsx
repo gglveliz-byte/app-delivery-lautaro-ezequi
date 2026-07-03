@@ -199,7 +199,9 @@ export default function Cart() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
-                      <h4 className="text-sm font-medium text-gray-800 truncate pr-2">{item.name}</h4>
+                      <h4 className="text-sm font-medium text-gray-800 truncate pr-2">
+                        {item.name} {item.unitType === "kg" && <span className="text-xs text-gray-500 font-normal ml-1">({item.quantity} kg)</span>}
+                      </h4>
                       <button
                         onClick={() => removeItem(item.productId)}
                         className="text-gray-400 hover:text-red-500 transition-colors touch-target"
@@ -213,14 +215,16 @@ export default function Cart() {
                       </span>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.productId, item.quantity - (item.unitType === "kg" ? 0.1 : 1))}
                           className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-50"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <span className="text-sm font-medium w-5 text-center">{item.quantity}</span>
+                        <span className="text-sm font-medium w-6 text-center text-ellipsis overflow-hidden">
+                          {item.unitType === "kg" ? Number(item.quantity).toFixed(2) : item.quantity}
+                        </span>
                         <button
-                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.productId, item.quantity + (item.unitType === "kg" ? 0.1 : 1))}
                           className="w-7 h-7 bg-[#2E7D32] rounded-lg flex items-center justify-center text-white hover:bg-[#1B5E20]"
                         >
                           <Plus className="w-3.5 h-3.5" />

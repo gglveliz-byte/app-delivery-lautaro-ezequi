@@ -7,7 +7,7 @@ import { getSessionCookieOptions } from "./lib/cookies";
 
 const JWT_ALG = "HS256";
 const ACCESS_EXPIRY = "15 minutes";
-const REFRESH_EXPIRY = "30 days";
+const REFRESH_EXPIRY = "10 years";
 
 export async function signCustomerTokens(customerId: number) {
   const secret = new TextEncoder().encode(env.appSecret);
@@ -78,7 +78,7 @@ export async function setCustomerCookies(resHeaders: Headers, reqHeaders: Header
   }));
   resHeaders.append("Set-Cookie", serializeCookie("refresh_token", tokens.refresh, {
     ...cookieOpts,
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: 10 * 365 * 24 * 60 * 60,
     path: "/",
     httpOnly: true,
     sameSite: "None",

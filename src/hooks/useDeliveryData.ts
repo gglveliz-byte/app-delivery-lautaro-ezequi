@@ -19,7 +19,15 @@ function handleAuthError() {
   localStorage.removeItem("qs_session")
   localStorage.removeItem("merchant_user")
   localStorage.removeItem("driver_user")
-  window.location.href = "/login"
+  const path = window.location.pathname;
+  const isBackoffice = path.startsWith("/admin") || 
+                       path.startsWith("/driver") || 
+                       path === "/commerce" || 
+                       path.startsWith("/commerce/orders") || 
+                       path.startsWith("/commerce/products") || 
+                       path.startsWith("/commerce/stats") || 
+                       path.startsWith("/commerce/profile");
+  window.location.href = isBackoffice ? "/login" : "/customer-login"
 }
 
 export async function trpcCall<T>(path: string, input?: Record<string, unknown>): Promise<T> {

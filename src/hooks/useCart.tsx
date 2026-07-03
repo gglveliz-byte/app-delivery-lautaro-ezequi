@@ -8,11 +8,12 @@ export interface CartItem {
   quantity: number;
   image: string;
   commerceName: string;
+  unitType?: string;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, "quantity">) => void;
+  addItem: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void;
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
@@ -30,16 +31,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   });
 
   const addItem = useCallback(
-    (item: Omit<CartItem, "quantity">) => {
+    (item: Omit<CartItem, "quantity"> & { quantity?: number }) => {
       setItems((prev) => {
         const existing = prev.find((i) => i.productId === item.productId);
         let newItems: CartItem[];
+        const qtyToAdd = item.quantity || 1;
         if (existing) {
           newItems = prev.map((i) =>
-            i.productId === item.productId ? { ...i, quantity: i.quantity + 1 } : i
+            i.productId === item.productId ? { ...i, quantity: i.quantity + qtyToAdd } : i
           );
         } else {
-          newItems = [...prev, { ...item, quantity: 1 }];
+          newItems = [...prev, { ...item, quantity: qtyToAdd }];
         }
         localStorage.setItem("cart", JSON.stringify(newItems));
         return newItems;

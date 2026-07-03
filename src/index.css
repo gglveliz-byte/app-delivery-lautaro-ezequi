@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Native PWA Behaviors */
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

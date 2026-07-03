@@ -20,7 +20,7 @@ export default function CommerceProducts() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "", image: "", isFeatured: "no", isAvailable: "yes" });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "", image: "", unitType: "unit", isFeatured: "no", isAvailable: "yes" });
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState<any>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export default function CommerceProducts() {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: "", description: "", price: "", category: "", image: "", isFeatured: "no", isAvailable: "yes" });
+    setForm({ name: "", description: "", price: "", category: "", image: "", unitType: "unit", isFeatured: "no", isAvailable: "yes" });
     setShowModal(true);
   };
 
@@ -50,6 +50,7 @@ export default function CommerceProducts() {
       price: p.price || "",
       category: p.category || "",
       image: p.image || "",
+      unitType: p.unitType || "unit",
       isFeatured: p.isFeatured || "no",
       isAvailable: p.isAvailable || "yes",
     });
@@ -160,7 +161,9 @@ export default function CommerceProducts() {
                     </div>
                     <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{p.description}</p>
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-sm font-bold text-[#2E7D32]">${p.price}</span>
+                      <span className="text-sm font-bold text-[#2E7D32]">
+                        ${p.price} {p.unitType === "kg" ? "/ kg" : ""}
+                      </span>
                       <div className="flex items-center gap-2">
                         {p.isFeatured === "yes" && <Star className="w-3.5 h-3.5 text-[#FFC107]" />}
                         <button onClick={() => toggleAvailable(p.id, p.isAvailable)} className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.isAvailable === "yes" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
@@ -192,6 +195,13 @@ export default function CommerceProducts() {
               <div className="grid grid-cols-2 gap-3">
                 <input type="number" step="0.01" min="0" placeholder="Precio" value={form.price} onChange={(e) => setForm({...form, price: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" required />
                 <input placeholder="Categoria" value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">¿Cómo se vende?</label>
+                <select value={form.unitType} onChange={(e) => setForm({...form, unitType: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 bg-white">
+                  <option value="unit">Por Unidad</option>
+                  <option value="kg">Por Kilogramo</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block">Imagen</label>

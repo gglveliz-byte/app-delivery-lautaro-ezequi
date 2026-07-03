@@ -41,6 +41,7 @@ export const productRouter = createRouter({
         isFeatured: products.isFeatured,
         isAvailable: products.isAvailable,
         preparationTime: products.preparationTime,
+        unitType: products.unitType,
         commerceName: commerces.name,
       })
       .from(products)
@@ -69,6 +70,7 @@ export const productRouter = createRouter({
         category: z.string().optional(),
         isFeatured: z.enum(["yes", "no"]).default("no"),
         isAvailable: z.enum(["yes", "no"]).default("yes"),
+        unitType: z.enum(["unit", "kg"]).default("unit"),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -107,6 +109,7 @@ export const productRouter = createRouter({
         category: z.string().optional(),
         isFeatured: z.enum(["yes", "no"]).optional(),
         isAvailable: z.enum(["yes", "no"]).optional(),
+        unitType: z.enum(["unit", "kg"]).optional(),
       })
     )
     .mutation(async ({ input }) => {

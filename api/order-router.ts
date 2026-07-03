@@ -14,7 +14,7 @@ export const orderRouter = createRouter({
           z.object({
             productId: z.number(),
             commerceId: z.number(),
-            quantity: z.number().min(1),
+            quantity: z.number().positive(),
           })
         ),
         deliveryAddress: z.string(),
@@ -79,7 +79,7 @@ export const orderRouter = createRouter({
             productId: item.productId,
             commerceId: item.commerceId,
             productName: item.productName,
-            quantity: item.quantity,
+            quantity: item.quantity.toString(),
             unitPrice: item.unitPrice,
             total: item.total,
           });

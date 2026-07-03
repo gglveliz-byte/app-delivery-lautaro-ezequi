@@ -385,6 +385,7 @@ export const adminRouter = createRouter({
         isAvailable: products.isAvailable,
         preparationTime: products.preparationTime,
         createdAt: products.createdAt,
+        unitType: products.unitType,
         commerceName: commerces.name,
       })
       .from(products)
@@ -897,7 +898,15 @@ export const adminRouter = createRouter({
 
         await tx.delete(orderCommerceStatus).where(eq(orderCommerceStatus.commerceId, input.id));
         await tx.delete(products).where(eq(products.commerceId, input.id));
+        
+        const commerce = await tx.select().from(commerces).where(eq(commerces.id, input.id));
+        const merchantId = commerce[0]?.merchantUserId;
+        
         await tx.delete(commerces).where(eq(commerces.id, input.id));
+        
+        if (merchantId) {
+          await tx.delete(users).where(eq(users.id, merchantId));
+        }
       });
       emit("admin:dashboard", { type: "dashboard_update" });
       return { success: true };

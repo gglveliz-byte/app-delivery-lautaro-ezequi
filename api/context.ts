@@ -30,12 +30,25 @@ export type TrpcContext = {
   merchant?: User;
 };
 
-async function getCustomerFromCookie(headers: Headers): Promise<Customer | null> {
+async function getCustomerFromCookie(headers: Headers, resHeaders: Headers): Promise<Customer | null> {
   const cookies = cookie.parse(headers.get("cookie") || "");
   const token = cookies["quickgo_token"];
-  if (!token) return null;
+  const refreshToken = cookies["refresh_token"];
   
-  const customerId = await verifyAccessToken(token);
+  let customerId: number | null = null;
+  
+  if (token) {
+    customerId = await verifyAccessToken(token);
+  }
+
+  if (!customerId && refreshToken) {
+    const { verifyRefreshToken, setCustomerCookies } = await import("./customer-auth");
+    customerId = await verifyRefreshToken(refreshToken);
+    if (customerId) {
+      await setCustomerCookies(resHeaders, headers, customerId);
+    }
+  }
+  
   if (!customerId) return null;
   
   const db = getDb();
@@ -123,7 +136,7 @@ export async function createContext(
 ): Promise<TrpcContext> {
   const ctx: TrpcContext = { req: opts.req, resHeaders: opts.resHeaders };
   try {
-    ctx.customer = await getCustomerFromCookie(opts.req.headers) ?? undefined;
+    ctx.customer = await getCustomerFromCookie(opts.req.headers, opts.resHeaders) ?? undefined;
     ctx.admin = await getAdminFromCookie(opts.req.headers) ?? undefined;
     ctx.driver = await getDriverFromCookie(opts.req.headers, opts.resHeaders) ?? undefined;
     ctx.merchant = await getMerchantFromCookie(opts.req.headers, opts.resHeaders) ?? undefined;

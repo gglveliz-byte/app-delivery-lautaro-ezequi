@@ -1,0 +1,23 @@
+{
+  "name": "YA LLEGA Socios",
+  "short_name": "Socios",
+  "description": "Panel de control para Comercios, Repartidores y Administración",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/logotipo.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logotipo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
