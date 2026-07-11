@@ -261,11 +261,16 @@ export const orderRouter = createRouter({
           const current = await tx.select().from(orders).where(eq(orders.id, input.id));
           const order = current[0];
           if (order && order.deliveryFee) {
+            const driverResult = await tx.select().from(drivers).where(eq(drivers.id, input.driverId));
+            const driver = driverResult[0];
+            const commissionRate = parseFloat(driver?.commissionRate || "80.00");
+            const driverShare = parseFloat(order.deliveryFee) * (commissionRate / 100);
+
             const today = new Date().toISOString().split("T")[0];
             await tx.insert(driverEarnings).values({
               driverId: input.driverId,
               orderId: input.id,
-              amount: String(order.deliveryFee),
+              amount: driverShare.toFixed(2),
               type: "delivery_fee",
               date: today,
             });

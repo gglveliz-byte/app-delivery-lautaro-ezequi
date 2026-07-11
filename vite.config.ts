@@ -8,7 +8,10 @@ import { defineConfig } from "vite"
 export default defineConfig({
   plugins: [
     devServer({ entry: "api/boot.ts", exclude: [/^\/(?!api\/).*$/] }),
-    react()],
+    react({ jsxRuntime: "classic" })],
+  esbuild: {
+    keepNames: false,
+  },
   server: {
     port: 3000,
   },

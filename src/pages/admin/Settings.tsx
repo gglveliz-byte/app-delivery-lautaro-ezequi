@@ -34,6 +34,7 @@ export default function AdminSettings() {
   const settingsQuery = trpc.admin.settings.useQuery();
   const updateSetting = useUpdateSetting();
   const getReports = useGetAdminReports();
+  const trpcContext = trpc.useContext();
 
   useEffect(() => {
     if (!settingsQuery.data) return;
@@ -60,6 +61,7 @@ export default function AdminSettings() {
         updateSetting.mutateAsync({ key: "min_order_amount", value: settings.minOrderAmount }),
         updateSetting.mutateAsync({ key: "bank_transfer_info", value: settings.bankTransferInfo }),
       ]);
+      await trpcContext.admin.settings.invalidate();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -158,10 +160,11 @@ export default function AdminSettings() {
 
         {/* App Settings */}
         <div className="bg-white rounded-xl card-shadow p-3 lg:p-5">
-          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-3 lg:mb-4 flex items-center gap-2">
+          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-1 lg:mb-2 flex items-center gap-2">
             <Settings className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-[#2E7D32]" />
             General
           </h2>
+          <p className="text-xs text-gray-500 mb-3 lg:mb-4 leading-relaxed">Configura los datos principales que los usuarios verán en la aplicación, como el nombre de tu marca y el teléfono de atención al cliente.</p>
           <div className="space-y-3 lg:space-y-4">
             <div>
               <label className="text-[10px] lg:text-xs font-medium text-gray-600 mb-1 block">Nombre de la app</label>
@@ -186,10 +189,11 @@ export default function AdminSettings() {
 
         {/* Financial Settings */}
         <div className="bg-white rounded-xl card-shadow p-3 lg:p-5">
-          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-3 lg:mb-4 flex items-center gap-2">
+          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-1 lg:mb-2 flex items-center gap-2">
             <DollarSign className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-[#2E7D32]" />
             Financiero
           </h2>
+          <p className="text-xs text-gray-500 mb-3 lg:mb-4 leading-relaxed">Establece las reglas de dinero globales: cuánto cuesta el envío base por defecto, qué porcentaje de comisión cobras a los negocios, y el pedido mínimo permitido.</p>
           <div className="space-y-3 lg:space-y-4">
             <div>
               <label className="text-[10px] lg:text-xs font-medium text-gray-600 mb-1 block">Costo de envio base ($)</label>
@@ -223,10 +227,11 @@ export default function AdminSettings() {
 
         {/* Bank Transfer Settings */}
         <div className="bg-white rounded-xl card-shadow p-3 lg:p-5">
-          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-3 lg:mb-4 flex items-center gap-2">
+          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-1 lg:mb-2 flex items-center gap-2">
             <DollarSign className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-[#2E7D32]" />
             Datos de Transferencia Bancaria
           </h2>
+          <p className="text-xs text-gray-500 mb-3 lg:mb-4 leading-relaxed">Escribe aquí tu CBU, CVU o alias. Esta información aparecerá para los clientes cuando decidan pagar un pedido por "Transferencia Bancaria".</p>
           <div className="space-y-3 lg:space-y-4">
             <div>
               <label className="text-[10px] lg:text-xs font-medium text-gray-600 mb-1 block">
@@ -254,10 +259,11 @@ export default function AdminSettings() {
 
         {/* Reports Export */}
         <div className="bg-white rounded-xl card-shadow p-3 lg:p-5">
-          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-3 lg:mb-4 flex items-center gap-2">
+          <h2 className="text-xs lg:text-sm font-semibold text-gray-800 mb-1 lg:mb-2 flex items-center gap-2">
             <Download className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-[#2E7D32]" />
             Reportes exportables
           </h2>
+          <p className="text-xs text-gray-500 mb-3 lg:mb-4 leading-relaxed">Genera reportes de ventas, comisiones o ganancias en formato PDF o Excel. Puedes filtrar por fechas específicas para descargar solo lo que necesitas.</p>
 
           {/* Date range inputs */}
           <div className="grid grid-cols-2 gap-2 lg:gap-3 mb-3 lg:mb-4">

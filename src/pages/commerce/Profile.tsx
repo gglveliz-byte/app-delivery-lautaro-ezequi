@@ -247,15 +247,15 @@ export default function CommerceProfile() {
         <div className="bg-white rounded-xl card-shadow p-3 lg:p-4 space-y-3 lg:space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1">
-                <Store className="w-3.5 h-3.5" /> Nombre
+              <label className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1 mb-1">
+                <Store className="w-3 h-3" /> Nombre de la Tienda
               </label>
               <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1">
-                <Mail className="w-3.5 h-3.5" /> Email de registro
+              <label className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1 mb-1">
+                <Mail className="w-3 h-3" /> Email de registro (No editable)
               </label>
               <input type="email" value={registeredEmail} readOnly
                 className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed" />
@@ -263,63 +263,65 @@ export default function CommerceProfile() {
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1">
-              <FileText className="w-3.5 h-3.5" /> Descripción
+            <label className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1 mb-1">
+              <FileText className="w-3 h-3" /> Descripción / Sobre nosotros
             </label>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Cuentale a tus clientes sobre tus productos y tu tienda..."
               rows={3} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none resize-none" />
           </div>
 
           {/* Address with map */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1">
-              <MapPin className="w-3.5 h-3.5" /> Dirección
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+            <label className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1 mb-1">
+              <MapPin className="w-3 h-3" /> Dirección de tu local
             </label>
+            <p className="text-[10px] text-gray-400 mb-2">
+              Puedes buscar la dirección o mover el pin en el mapa para mayor precisión. Esta ubicación la usará el repartidor.
+            </p>
             <div className="flex gap-2">
               <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
-                placeholder="Dirección del comercio"
-                className="flex-1 h-9 px-3 text-sm border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none" />
+                placeholder="Ej: Calle Principal 123"
+                className="flex-1 h-9 px-3 text-sm border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none bg-white" />
               <button onClick={handleGetLocation} disabled={geoLoading}
                 className="h-9 px-3 bg-[#2E7D32] text-white rounded-lg hover:bg-[#1B5E20] transition-colors flex items-center gap-1 text-sm disabled:opacity-50">
                 <LocateFixed className="w-4 h-4" />
-                {geoLoading ? "" : "Ubicación"}
+                {geoLoading ? "" : "Mi Ubicación"}
               </button>
             </div>
-            <div ref={mapRef} className="w-full h-64 rounded-lg mt-2 z-0" />
-            <div className="flex gap-4 mt-2 text-xs text-gray-500">
-              <span>Lat: {form.lat || "-"}</span>
-              <span>Lng: {form.lng || "-"}</span>
+            <div ref={mapRef} className="w-full h-64 rounded-lg mt-2 z-0 border border-gray-200" />
+            <div className="flex gap-4 mt-2 text-[10px] text-gray-400">
+              <span>Coordenadas exactas: Lat: {form.lat || "-"} Lng: {form.lng || "-"}</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1">
-                <Phone className="w-3.5 h-3.5" /> Teléfono
+              <label className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1 mb-1">
+                <Phone className="w-3 h-3" /> Teléfono de contacto
               </label>
-              <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Para clientes y repartidores"
                 className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1">
-                <Clock className="w-3.5 h-3.5" /> Horarios
+              <label className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1 mb-1">
+                <Clock className="w-3 h-3" /> Horarios de atención
               </label>
               <input type="text" value={form.openHours} onChange={(e) => setForm({ ...form, openHours: e.target.value })}
-                placeholder="Ej: Lun-Vie 9-21, Sab 10-18"
+                placeholder="Ej: Lun-Vie 9:00 a 21:00"
                 className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1">Pedido mínimo</label>
-              <input type="text" value={form.minOrder} onChange={(e) => setForm({ ...form, minOrder: e.target.value })}
+              <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Monto Mínimo de Pedido ($)</label>
+              <input type="text" value={form.minOrder} onChange={(e) => setForm({ ...form, minOrder: e.target.value })} placeholder="Dejar en 0 si no hay mínimo"
                 className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1">Tiempo de entrega</label>
+              <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Tiempo estimado de entrega</label>
               <input type="text" value={form.deliveryTime} onChange={(e) => setForm({ ...form, deliveryTime: e.target.value })}
-                placeholder="Ej: 30-45 min"
+                placeholder="Ej: 30-45 minutos"
                 className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32] outline-none" />
             </div>
           </div>

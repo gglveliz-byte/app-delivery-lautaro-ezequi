@@ -131,8 +131,8 @@ export default function AdminCommerces() {
     setSaving(true);
     try {
       const payload: any = { id: editing.id, ...editForm };
-      if (payload.commissionRate) payload.commissionRate = String(payload.commissionRate);
-      if (payload.minOrder) payload.minOrder = String(payload.minOrder);
+      payload.commissionRate = payload.commissionRate ? String(payload.commissionRate) : "0.00";
+      payload.minOrder = payload.minOrder ? String(payload.minOrder) : "0.00";
       if (payload.categoryId) payload.categoryId = Number(payload.categoryId);
       const updated = await trpcMutate<any>("admin.updateCommerce", payload);
       setCommerceList(commerceList.map(c => c.id === editing.id ? { ...c, ...updated } : c));
@@ -256,20 +256,32 @@ export default function AdminCommerces() {
               <h2 className="text-lg font-bold text-gray-800">Nuevo comercio</h2>
               <button onClick={() => setShowNewMerchant(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-sm text-gray-500 mb-4">Crear una cuenta de acceso para el comercio</p>
-            <form onSubmit={handleCreateMerchant} className="space-y-3">
-              <input placeholder="Nombre del comercio" value={merchantForm.name} onChange={(e) => setMerchantForm({...merchantForm, name: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
-              <input type="email" placeholder="Email" value={merchantForm.email} onChange={(e) => setMerchantForm({...merchantForm, email: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
-              <input type="password" placeholder="Contraseña" value={merchantForm.password} onChange={(e) => setMerchantForm({...merchantForm, password: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
-              <select value={merchantForm.categoryId} onChange={(e) => setMerchantForm({...merchantForm, categoryId: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] bg-white" required>
-                <option value="">Seleccionar categoría</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-              <div className="flex gap-3 pt-2">
+            <p className="text-xs text-gray-500 mb-4 leading-relaxed">Crea los credenciales de acceso para este negocio. Con este email y contraseña, el dueño del local podrá entrar a su propio panel para agregar sus productos y ver sus ventas.</p>
+            <form onSubmit={handleCreateMerchant} className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Nombre Comercial</label>
+                <input placeholder="Ej: Pizzería Don Juan" value={merchantForm.name} onChange={(e) => setMerchantForm({...merchantForm, name: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Correo de Acceso (Email)</label>
+                <input type="email" placeholder="contacto@pizzeria.com" value={merchantForm.email} onChange={(e) => setMerchantForm({...merchantForm, email: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Contraseña temporal</label>
+                <input type="password" placeholder="Min. 6 caracteres" value={merchantForm.password} onChange={(e) => setMerchantForm({...merchantForm, password: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Categoría principal</label>
+                <select value={merchantForm.categoryId} onChange={(e) => setMerchantForm({...merchantForm, categoryId: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] bg-white" required>
+                  <option value="">Seleccionar categoría...</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-gray-100">
                 <button type="button" onClick={() => setShowNewMerchant(false)} className="flex-1 h-11 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 h-11 bg-[#2E7D32] text-white rounded-xl text-sm font-medium hover:bg-[#1B5E20] disabled:opacity-50">{saving ? "Creando..." : "Crear"}</button>
+                <button type="submit" disabled={saving} className="flex-1 h-11 bg-[#2E7D32] text-white rounded-xl text-sm font-medium hover:bg-[#1B5E20] disabled:opacity-50">{saving ? "Creando..." : "Crear comercio"}</button>
               </div>
             </form>
           </div>
@@ -329,11 +341,12 @@ export default function AdminCommerces() {
               <h2 className="text-lg font-bold text-gray-800">Editar comercio</h2>
               <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleEdit} className="space-y-3">
+            <p className="text-xs text-gray-500 mb-4 leading-relaxed">Modifica la información pública del negocio, los horarios en los que operan, y el porcentaje exacto de comisión que les vas a cobrar por cada venta que hagan a través de la app.</p>
+            <form onSubmit={handleEdit} className="space-y-4">
               {/* Logo + Portada */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-500 mb-1 block">Logo</label>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Logo del Comercio</label>
                   <div className="flex gap-2 items-start">
                     {editForm.logo && (
                       <div className="w-14 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
@@ -351,7 +364,7 @@ export default function AdminCommerces() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 mb-1 block">Portada</label>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Foto de Portada</label>
                   <div className="flex gap-2 items-start">
                     {editForm.coverImage && (
                       <div className="w-14 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
@@ -370,39 +383,80 @@ export default function AdminCommerces() {
                 </div>
               </div>
 
-              <input placeholder="Nombre" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
-              <input placeholder="Telefono" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
-              <input placeholder="Email" value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
-              <input placeholder="Direccion" value={editForm.address} onChange={(e) => setEditForm({...editForm, address: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Nombre Público</label>
+                <input placeholder="Nombre que verán los clientes" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
+              </div>
               
               <div className="grid grid-cols-2 gap-3">
-                <select value={editForm.categoryId} onChange={(e) => setEditForm({...editForm, categoryId: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] bg-white">
-                  <option value="">Categoria</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-                <select value={editForm.isOpen} onChange={(e) => setEditForm({...editForm, isOpen: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] bg-white">
-                  <option value="open">Abierto</option>
-                  <option value="closed">Cerrado</option>
-                </select>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Teléfono</label>
+                  <input placeholder="Para contacto" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Email</label>
+                  <input placeholder="Correo público" value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Dirección física</label>
+                <input placeholder="Calle y número" value={editForm.address} onChange={(e) => setEditForm({...editForm, address: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Categoría</label>
+                  <select value={editForm.categoryId} onChange={(e) => setEditForm({...editForm, categoryId: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] bg-white">
+                    <option value="">Seleccione...</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Disponibilidad</label>
+                  <select value={editForm.isOpen} onChange={(e) => setEditForm({...editForm, isOpen: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] bg-white">
+                    <option value="open">Abierto recibiendo pedidos</option>
+                    <option value="closed">Cerrado actualmente</option>
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <input placeholder="Comision (%)" value={editForm.commissionRate} onChange={(e) => setEditForm({...editForm, commissionRate: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
-                <input placeholder="Rating" value={editForm.rating} onChange={(e) => setEditForm({...editForm, rating: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
-                <input placeholder="Pedido min" value={editForm.minOrder} onChange={(e) => setEditForm({...editForm, minOrder: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Comisión (%)</label>
+                  <input placeholder="Ej: 10" value={editForm.commissionRate} onChange={(e) => setEditForm({...editForm, commissionRate: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Rating (Estrellas)</label>
+                  <input placeholder="Ej: 4.5" value={editForm.rating} onChange={(e) => setEditForm({...editForm, rating: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Pedido Mín ($)</label>
+                  <input placeholder="Ej: 5.00" value={editForm.minOrder} onChange={(e) => setEditForm({...editForm, minOrder: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Tiempo de entrega" value={editForm.deliveryTime} onChange={(e) => setEditForm({...editForm, deliveryTime: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
-                <input placeholder="Horarios (ej: Lun-Vie 9-21)" value={editForm.openHours} onChange={(e) => setEditForm({...editForm, openHours: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Tiempo de entrega</label>
+                  <input placeholder="Ej: 30-45 min" value={editForm.deliveryTime} onChange={(e) => setEditForm({...editForm, deliveryTime: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Horarios de atención</label>
+                  <input placeholder="Ej: Lun-Vie 9-21" value={editForm.openHours} onChange={(e) => setEditForm({...editForm, openHours: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
               </div>
 
-              <textarea placeholder="Descripcion" value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} rows={2} className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] resize-none" />
-              <div className="flex gap-3 pt-2">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Descripción breve</label>
+                <textarea placeholder="De qué trata este negocio..." value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} rows={2} className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32] resize-none" />
+              </div>
+              
+              <div className="flex gap-3 pt-4 border-t border-gray-100">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 h-11 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 h-11 bg-[#2E7D32] text-white rounded-xl text-sm font-medium hover:bg-[#1B5E20] disabled:opacity-50">{saving ? "Guardando..." : "Guardar"}</button>
+                <button type="submit" disabled={saving} className="flex-1 h-11 bg-[#2E7D32] text-white rounded-xl text-sm font-medium hover:bg-[#1B5E20] disabled:opacity-50">{saving ? "Guardando..." : "Guardar cambios"}</button>
               </div>
             </form>
           </div>

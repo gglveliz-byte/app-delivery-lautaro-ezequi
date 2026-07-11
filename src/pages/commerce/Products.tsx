@@ -189,28 +189,49 @@ export default function CommerceProducts() {
               <h2 className="text-lg font-bold text-gray-800">{editing ? "Editar producto" : "Nuevo producto"}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSave} className="space-y-3">
-              <input placeholder="Nombre" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" required />
-              <textarea placeholder="Descripcion" value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 resize-none" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" step="0.01" min="0" placeholder="Precio" value={form.price} onChange={(e) => setForm({...form, price: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" required />
-                <input placeholder="Categoria" value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" />
-              </div>
+            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+              {editing
+                ? "Modifica los detalles de este producto, como su precio, descripción o disponibilidad en la tienda."
+                : "Agrega un nuevo producto a tu menú o catálogo. Completa los detalles para que los clientes puedan verlo y comprarlo."}
+            </p>
+            <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">¿Cómo se vende?</label>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Nombre del Producto</label>
+                <input placeholder="Ej: Hamburguesa Doble Queso" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" required />
+              </div>
+              
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Descripción (Opcional)</label>
+                <textarea placeholder="Ingredientes o detalles del producto..." value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 resize-none" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Precio Final ($)</label>
+                  <input type="number" step="0.01" min="0" placeholder="Ej: 15.50" value={form.price} onChange={(e) => setForm({...form, price: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" required />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Categoría Interna</label>
+                  <input placeholder="Ej: Bebidas, Postres" value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">¿Cómo se cobra este producto?</label>
                 <select value={form.unitType} onChange={(e) => setForm({...form, unitType: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 bg-white">
-                  <option value="unit">Por Unidad</option>
-                  <option value="kg">Por Kilogramo</option>
+                  <option value="unit">Por Unidad (Ej: 1 Hamburguesa)</option>
+                  <option value="kg">Por Kilogramo (Ej: Carnes, Helado)</option>
                 </select>
               </div>
+
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Imagen</label>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Foto del Producto</label>
                 <div className="flex gap-2 items-start">
                   <div className="flex-1 space-y-2">
-                    <input placeholder="URL de imagen (o subí un archivo)" value={form.image} onChange={(e) => setForm({...form, image: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" />
+                    <input placeholder="Pegar URL de internet o subir archivo" value={form.image} onChange={(e) => setForm({...form, image: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20" />
                     <label className="flex items-center gap-2 text-sm text-[#2E7D32] cursor-pointer hover:text-[#1B5E20]">
                       <Camera className="w-4 h-4" />
-                      Subir archivo
+                      Subir foto desde este dispositivo
                       <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                         const f = e.target.files?.[0];
                         if (f) setForm({...form, image: await readFileAsDataURL(f)});
@@ -218,23 +239,29 @@ export default function CommerceProducts() {
                     </label>
                   </div>
                   {form.image && (
-                    <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
-                      <img src={form.image} alt="preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%228%22 fill=%22%23fefce8%22/%3E%3Crect x=%2212%22 y=%2214%22 width=%2224%22 height=%2226%22 rx=%222%22 fill=%22%23fef9c3%22/%3E%3Crect x=%2212%22 y=%2214%22 width=%2224%22 height=%228%22 rx=%221%22 fill=%22%23fef08a%22/%3E%3Cline x1=%2212%22 y1=%2220%22 x2=%2236%22 y2=%2220%22 stroke=%22%23eab308%22 stroke-width=%221%22/%3E%3Crect x=%2220%22 y=%2226%22 width=%228%22 height=%2214%22 rx=%221%22 fill=%22%23fef08a%22/%3E%3C/svg%3E' }} />
+                    <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-50">
+                      <img src={form.image} alt="preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                     </div>
                   )}
                 </div>
               </div>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input type="checkbox" checked={form.isFeatured === "yes"} onChange={(e) => setForm({...form, isFeatured: e.target.checked ? "yes" : "no"})} className="w-4 h-4 accent-[#2E7D32]" /> Destacado
+
+              <div className="flex gap-4 pt-2">
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={form.isFeatured === "yes"} onChange={(e) => setForm({...form, isFeatured: e.target.checked ? "yes" : "no"})} className="w-4 h-4 accent-[#2E7D32]" /> 
+                  Destacar (Aparece primero)
                 </label>
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input type="checkbox" checked={form.isAvailable === "yes"} onChange={(e) => setForm({...form, isAvailable: e.target.checked ? "yes" : "no"})} className="w-4 h-4 accent-[#2E7D32]" /> Disponible
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={form.isAvailable === "yes"} onChange={(e) => setForm({...form, isAvailable: e.target.checked ? "yes" : "no"})} className="w-4 h-4 accent-[#2E7D32]" /> 
+                  Hay stock disponible
                 </label>
               </div>
-              <button type="submit" disabled={saving} className="w-full h-11 bg-[#2E7D32] text-white font-medium rounded-lg mt-2 hover:bg-[#1B5E20] disabled:opacity-50">
-                {saving ? "Guardando..." : editing ? "Guardar cambios" : "Crear producto"}
-              </button>
+
+              <div className="pt-4 border-t border-gray-100">
+                <button type="submit" disabled={saving} className="w-full h-11 bg-[#2E7D32] text-white font-medium rounded-lg hover:bg-[#1B5E20] disabled:opacity-50 transition-colors">
+                  {saving ? "Guardando..." : editing ? "Guardar cambios" : "Crear producto"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

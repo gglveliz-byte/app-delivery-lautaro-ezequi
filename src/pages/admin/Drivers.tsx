@@ -198,14 +198,41 @@ export default function AdminDrivers() {
               <h2 className="text-lg font-bold text-gray-800">{editing ? "Editar repartidor" : "Nuevo repartidor"}</h2>
               <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSave} className="space-y-3">
-              <input placeholder="Nombre" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
-              <PhoneInput value={form.phone} onChange={(v) => setForm({...form, phone: v})} />
-              <input type="password" placeholder={editing ? "Nueva contraseña (dejar vacio = sin cambios)" : "Contraseña"} value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required={!editing} />
-              <input placeholder="Vehiculo (ej: Moto Honda CB190)" value={form.vehicle} onChange={(e) => setForm({...form, vehicle: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
-              <input placeholder="Patente (ej: ABC-123)" value={form.licensePlate} onChange={(e) => setForm({...form, licensePlate: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+              {editing 
+                ? "Edita los datos del repartidor, su vehículo o el porcentaje de comisión que gana por cada viaje que realiza." 
+                : "Registra a un nuevo repartidor en el sistema. Con el teléfono y la contraseña que ingreses aquí, el repartidor podrá iniciar sesión en su propia aplicación."}
+            </p>
+            <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">% Comision del repartidor (sobre costo de envio)</label>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Nombre completo</label>
+                <input placeholder="Ej: Carlos Ramírez" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required />
+              </div>
+              
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Teléfono (Usuario para Login)</label>
+                <PhoneInput value={form.phone} onChange={(v) => setForm({...form, phone: v})} />
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">{editing ? "Cambiar Contraseña (opcional)" : "Contraseña de acceso"}</label>
+                <input type="password" placeholder={editing ? "Dejar vacío para no cambiarla" : "Min. 6 caracteres"} value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" required={!editing} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Vehículo</label>
+                  <input placeholder="Ej: Moto Honda 150" value={form.vehicle} onChange={(e) => setForm({...form, vehicle: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Patente</label>
+                  <input placeholder="Ej: ABC-123" value={form.licensePlate} onChange={(e) => setForm({...form, licensePlate: e.target.value})} className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Ganancia del Repartidor (%)</label>
+                <p className="text-[10px] text-gray-400 mb-2">Porcentaje del "Costo de Envío" que el repartidor se queda para él.</p>
                 <input
                   type="number"
                   min="0"
@@ -215,9 +242,10 @@ export default function AdminDrivers() {
                   className="w-full h-11 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#2E7D32]"
                 />
               </div>
-              <div className="flex gap-3 pt-2">
+
+              <div className="flex gap-3 pt-4 border-t border-gray-100">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 h-11 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 h-11 bg-[#2E7D32] text-white rounded-xl text-sm font-medium hover:bg-[#1B5E20] transition-colors disabled:opacity-50">{saving ? "Guardando..." : "Guardar"}</button>
+                <button type="submit" disabled={saving} className="flex-1 h-11 bg-[#2E7D32] text-white rounded-xl text-sm font-medium hover:bg-[#1B5E20] transition-colors disabled:opacity-50">{saving ? "Guardando..." : "Guardar repartidor"}</button>
               </div>
             </form>
           </div>

@@ -50,19 +50,23 @@ export default function SessionGuard({ role, children }: { role: GuardRole; chil
     }
 
     // For non-customer roles: verify with backend
+    let cancelled = false
     const verify = async () => {
       try {
         const result = await trpcCall<{ authenticated: boolean; role: string | null }>("login.checkAuth")
+        if (cancelled) return
         if (result.authenticated && result.role === role) {
           setChecking(false)
         } else {
           redirectOut()
         }
       } catch {
+        if (cancelled) return
         redirectOut()
       }
     }
     verify()
+    return () => { cancelled = true }
   }, [role, isAuthenticated, redirectOut])
 
   useEffect(() => {
