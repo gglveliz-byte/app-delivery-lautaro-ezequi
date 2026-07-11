@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Search,
@@ -46,6 +47,8 @@ export default function AdminOrders() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [loadingCommerceId, setLoadingCommerceId] = useState<number | null>(null);
+  const [loadingDriverId, setLoadingDriverId] = useState<number | null>(null);
   
   const { data: orders, loading } = useAdminOrders();
   const { data: orderDetails, isLoading: detailsLoading, isError: detailsError } = trpc.admin.orderDetail.useQuery(
@@ -69,6 +72,24 @@ export default function AdminOrders() {
         utils.admin.orderDetail.invalidate({ id: selectedOrderId });
       }
     }
+  });
+
+  const queryClient = useQueryClient();
+
+  const toggleCommerce = trpc.admin.toggleCommerceSettled.useMutation({
+    onSuccess: () => {
+      utils.admin.orders.invalidate();
+      queryClient.invalidateQueries({ queryKey: ["admin.orders"] });
+    },
+    onSettled: () => setLoadingCommerceId(null)
+  });
+  
+  const toggleDriver = trpc.admin.toggleDriverSettled.useMutation({
+    onSuccess: () => {
+      utils.admin.orders.invalidate();
+      queryClient.invalidateQueries({ queryKey: ["admin.orders"] });
+    },
+    onSettled: () => setLoadingDriverId(null)
   });
 
   const handleApprovePayment = async () => {
@@ -137,19 +158,21 @@ export default function AdminOrders() {
             ))}
           </div>
 
-          <div className="bg-white rounded-xl card-shadow overflow-hidden lg:flex-1 lg:min-h-0">
-            <div className="overflow-x-auto lg:h-full lg:overflow-y-auto">
-              <table className="w-full text-[11px] lg:text-sm">
+          <div className="bg-white lg:bg-transparent lg:rounded-xl lg:card-shadow lg:overflow-hidden lg:flex-1 lg:min-h-0">
+            {/* Desktop Table View */}
+            <div className="hidden lg:block overflow-x-auto lg:h-full lg:overflow-y-auto bg-white">
+              <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-600 lg:sticky lg:top-0 lg:z-10">
                   <tr>
-                    <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">ID</th>
-                    <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Cliente</th>
-                    <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Comercio</th>
-                    <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Repartidor</th>
-                    <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Total</th>
-                    <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Estado</th>
-                    <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Fecha</th>
-                    <th className="text-center px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Acciones</th>
+                    <th className="text-left px-4 py-3 font-medium">ID</th>
+                    <th className="text-left px-4 py-3 font-medium">Cliente</th>
+                    <th className="text-left px-4 py-3 font-medium">Comercio</th>
+                    <th className="text-left px-4 py-3 font-medium">Repartidor</th>
+                    <th className="text-left px-4 py-3 font-medium">Total</th>
+                    <th className="text-left px-4 py-3 font-medium">Estado</th>
+                    <th className="text-left px-4 py-3 font-medium">Fecha</th>
+                    <th className="text-left px-4 py-3 font-medium">Pagos y Cobros</th>
+                    <th className="text-center px-4 py-3 font-medium">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -168,23 +191,67 @@ export default function AdminOrders() {
                   ) : (
                     filtered.map((o: any) => (
                       <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium text-gray-800">#{o.id}</td>
-                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
+                        <td className="px-4 py-3 font-medium text-gray-800">#{o.id}</td>
+                        <td className="px-4 py-3">
                           <p className="text-gray-800 leading-tight">{o.customerName}</p>
-                          <p className="text-[10px] lg:text-xs text-gray-500 leading-tight">{o.customerPhone}</p>
+                          <p className="text-xs text-gray-500 leading-tight">{o.customerPhone}</p>
                         </td>
-                        <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{o.commerceName}</td>
-                        <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{o.driverName || "-"}</td>
-                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium text-gray-800">${parseFloat(o.total || "0").toFixed(2)}</td>
-                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                          <span className={`px-1.5 lg:px-2 py-0.5 rounded-full text-[10px] lg:text-xs font-medium ${statusColors[o.status] || "bg-gray-100 text-gray-600"}`}>
+                        <td className="px-4 py-3 text-gray-600">{o.commerceName}</td>
+                        <td className="px-4 py-3 text-gray-600">{o.driverName || "-"}</td>
+                        <td className="px-4 py-3 font-medium text-gray-800">${parseFloat(o.total || "0").toFixed(2)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[o.status] || "bg-gray-100 text-gray-600"}`}>
                             {(o.status || "").replace(/_/g, " ")}
                           </span>
                         </td>
-                        <td className="hidden lg:table-cell px-4 py-3 text-gray-500 text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleString() : "-"}</td>
-                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 text-center">
-                          <button onClick={() => setSelectedOrderId(o.id)} className="p-1.5 lg:p-2 text-[#2E7D32] hover:bg-green-50 rounded-lg transition-colors" title="Ver detalles">
-                            <Eye className="w-4 h-4 lg:w-5 lg:h-5" />
+                        <td className="px-4 py-3 text-gray-500 text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleString() : "-"}</td>
+                        <td className="px-4 py-3 min-w-[200px]">
+                          {o.status === "delivered" ? (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center justify-between gap-2 bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] text-gray-500 leading-none">Comercio</span>
+                                  <span className={`text-xs font-semibold ${o.commerceAction === 'cobrar' ? 'text-blue-600' : 'text-orange-600'}`}>
+                                    {o.commerceAction === 'cobrar' ? 'Cobrar' : 'Pagar'} ${o.commerceOwed}
+                                  </span>
+                                </div>
+                                <button
+                                  disabled={loadingCommerceId === o.id}
+                                  onClick={() => {
+                                    setLoadingCommerceId(o.id);
+                                    toggleCommerce.mutate({ id: o.id });
+                                  }}
+                                  className={`px-2 py-1 text-[10px] font-medium rounded transition-colors disabled:opacity-50 ${o.commerceSettled ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                                >
+                                  {loadingCommerceId === o.id ? '...' : o.commerceSettled ? 'Saldado' : 'Pendiente'}
+                                </button>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] text-gray-500 leading-none">Repartidor</span>
+                                  <span className={`text-xs font-semibold ${o.driverAction === 'cobrar' ? 'text-blue-600' : 'text-orange-600'}`}>
+                                    {o.driverAction === 'cobrar' ? 'Cobrar' : 'Pagar'} ${o.driverOwed}
+                                  </span>
+                                </div>
+                                <button
+                                  disabled={loadingDriverId === o.id}
+                                  onClick={() => {
+                                    setLoadingDriverId(o.id);
+                                    toggleDriver.mutate({ id: o.id });
+                                  }}
+                                  className={`px-2 py-1 text-[10px] font-medium rounded transition-colors disabled:opacity-50 ${o.driverSettled ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                                >
+                                  {loadingDriverId === o.id ? '...' : o.driverSettled ? 'Saldado' : 'Pendiente'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-gray-400">Pendiente de entrega</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button onClick={() => setSelectedOrderId(o.id)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors" title="Ver detalles">
+                            <Eye className="w-5 h-5" />
                           </button>
                         </td>
                       </tr>
@@ -192,6 +259,98 @@ export default function AdminOrders() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden flex flex-col gap-3 pb-4">
+              {loading ? (
+                <div className="p-4 text-center text-gray-500 text-sm">Cargando pedidos...</div>
+              ) : filtered.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">No hay pedidos</div>
+              ) : (
+                filtered.map((o: any) => (
+                  <div key={o.id} className="bg-white rounded-xl card-shadow p-4 flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-xs text-gray-500 font-medium">#{o.id} • {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "-"}</span>
+                        <h3 className="font-bold text-gray-800">${parseFloat(o.total || "0").toFixed(2)}</h3>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[o.status] || "bg-gray-100 text-gray-600"}`}>
+                        {(o.status || "").replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="block text-[10px] text-gray-500">Cliente</span>
+                        <span className="font-medium text-gray-800">{o.customerName}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-gray-500">Teléfono</span>
+                        <span className="text-gray-800">{o.customerPhone}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-gray-500">Comercio</span>
+                        <span className="text-gray-800">{o.commerceName}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-gray-500">Repartidor</span>
+                        <span className="text-gray-800">{o.driverName || "No asignado"}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
+                      <div className="flex-1">
+                        {o.status === "delivered" ? (
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 leading-none">Comercio</span>
+                                <span className={`text-xs font-semibold ${o.commerceAction === 'cobrar' ? 'text-blue-600' : 'text-orange-600'}`}>
+                                  {o.commerceAction === 'cobrar' ? 'Cobrar' : 'Pagar'} ${o.commerceOwed}
+                                </span>
+                              </div>
+                              <button
+                                disabled={loadingCommerceId === o.id}
+                                onClick={() => {
+                                  setLoadingCommerceId(o.id);
+                                  toggleCommerce.mutate({ id: o.id });
+                                }}
+                                className={`px-3 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${o.commerceSettled ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                              >
+                                {loadingCommerceId === o.id ? '...' : o.commerceSettled ? 'Saldado' : 'Pendiente'}
+                              </button>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 leading-none">Repartidor</span>
+                                <span className={`text-xs font-semibold ${o.driverAction === 'cobrar' ? 'text-blue-600' : 'text-orange-600'}`}>
+                                  {o.driverAction === 'cobrar' ? 'Cobrar' : 'Pagar'} ${o.driverOwed}
+                                </span>
+                              </div>
+                              <button
+                                disabled={loadingDriverId === o.id}
+                                onClick={() => {
+                                  setLoadingDriverId(o.id);
+                                  toggleDriver.mutate({ id: o.id });
+                                }}
+                                className={`px-3 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${o.driverSettled ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                              >
+                                {loadingDriverId === o.id ? '...' : o.driverSettled ? 'Saldado' : 'Pendiente'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">Pendiente de entrega</span>
+                        )}
+                      </div>
+                      <button onClick={() => setSelectedOrderId(o.id)} className="ml-3 p-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors" title="Ver detalles">
+                        <Eye className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

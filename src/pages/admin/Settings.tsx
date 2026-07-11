@@ -25,7 +25,6 @@ export default function AdminSettings() {
   const [dateTo, setDateTo] = useState("");
   const [settings, setSettings] = useState({
     deliveryFee: "2.50",
-    commissionRate: "8.00",
     minOrderAmount: "3.00",
     appName: "YA LLEGA",
     supportPhone: "555-HELP",
@@ -42,7 +41,6 @@ export default function AdminSettings() {
     settingsQuery.data.forEach((row: any) => { map[row.key] = row.value ?? ""; });
     setSettings({
       deliveryFee: map.delivery_fee || "2.50",
-      commissionRate: map.commission_rate || "8.00",
       minOrderAmount: map.min_order_amount || "3.00",
       appName: map.app_name || "YA LLEGA",
       supportPhone: map.support_phone || "555-HELP",
@@ -57,7 +55,6 @@ export default function AdminSettings() {
         updateSetting.mutateAsync({ key: "app_name", value: settings.appName }),
         updateSetting.mutateAsync({ key: "support_phone", value: settings.supportPhone }),
         updateSetting.mutateAsync({ key: "delivery_fee", value: settings.deliveryFee }),
-        updateSetting.mutateAsync({ key: "commission_rate", value: settings.commissionRate }),
         updateSetting.mutateAsync({ key: "min_order_amount", value: settings.minOrderAmount }),
         updateSetting.mutateAsync({ key: "bank_transfer_info", value: settings.bankTransferInfo }),
       ]);
@@ -193,7 +190,7 @@ export default function AdminSettings() {
             <DollarSign className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-[#2E7D32]" />
             Financiero
           </h2>
-          <p className="text-xs text-gray-500 mb-3 lg:mb-4 leading-relaxed">Establece las reglas de dinero globales: cuánto cuesta el envío base por defecto, qué porcentaje de comisión cobras a los negocios, y el pedido mínimo permitido.</p>
+          <p className="text-xs text-gray-500 mb-3 lg:mb-4 leading-relaxed">Establece las reglas de dinero globales: cuánto cuesta el envío base por defecto y el pedido mínimo permitido. Las comisiones se configuran individualmente en cada comercio.</p>
           <div className="space-y-3 lg:space-y-4">
             <div>
               <label className="text-[10px] lg:text-xs font-medium text-gray-600 mb-1 block">Costo de envio base ($)</label>
@@ -201,15 +198,6 @@ export default function AdminSettings() {
                 type="text"
                 value={settings.deliveryFee}
                 onChange={(e) => setSettings({ ...settings, deliveryFee: e.target.value })}
-                className="w-full h-9 lg:h-10 px-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] lg:text-xs font-medium text-gray-600 mb-1 block">Comision global (%)</label>
-              <input
-                type="text"
-                value={settings.commissionRate}
-                onChange={(e) => setSettings({ ...settings, commissionRate: e.target.value })}
                 className="w-full h-9 lg:h-10 px-3 border border-gray-200 rounded-lg text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20"
               />
             </div>

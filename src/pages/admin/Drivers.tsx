@@ -17,7 +17,7 @@ export default function AdminDrivers() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: "", phone: "", password: "", vehicle: "", licensePlate: "", commissionRate: "80" });
+  const [form, setForm] = useState({ name: "", phone: "", password: "", vehicle: "", licensePlate: "", commissionRate: "75" });
   const [saving, setSaving] = useState(false);
 
   const filtered = driverList.filter((d) =>
@@ -30,13 +30,13 @@ export default function AdminDrivers() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: "", phone: "", password: "", vehicle: "", licensePlate: "", commissionRate: "80" });
+    setForm({ name: "", phone: "", password: "", vehicle: "", licensePlate: "", commissionRate: "75" });
     setShowForm(true);
   };
 
   const openEdit = (d: any) => {
     setEditing(d);
-    setForm({ name: d.name, phone: d.phone, password: "", vehicle: d.vehicle || "", licensePlate: d.licensePlate || "", commissionRate: d.commissionRate || "80" });
+    setForm({ name: d.name, phone: d.phone, password: "", vehicle: d.vehicle || "", licensePlate: d.licensePlate || "", commissionRate: d.commissionRate || "75" });
     setShowForm(true);
   };
 
@@ -124,55 +124,56 @@ export default function AdminDrivers() {
               </div>
 
               {/* Drivers Table */}
-              <div className="bg-white rounded-xl card-shadow overflow-hidden lg:flex-1 lg:min-h-0">
-                <div className="overflow-x-auto lg:h-full lg:overflow-y-auto">
-                  <table className="w-full text-[11px] lg:text-sm">
+              <div className="bg-white lg:bg-transparent lg:rounded-xl lg:card-shadow lg:overflow-hidden lg:flex-1 lg:min-h-0">
+                {/* Desktop Table View */}
+                <div className="hidden lg:block overflow-x-auto lg:h-full lg:overflow-y-auto bg-white">
+                  <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-gray-600 lg:sticky lg:top-0 lg:z-10">
                       <tr>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Repartidor</th>
-                        <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Vehiculo</th>
-                        <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Patente</th>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Estado</th>
-                        <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Ubicacion</th>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Calif.</th>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Acciones</th>
+                        <th className="text-left px-4 py-3 font-medium">Repartidor</th>
+                        <th className="text-left px-4 py-3 font-medium">Vehiculo</th>
+                        <th className="text-left px-4 py-3 font-medium">Patente</th>
+                        <th className="text-left px-4 py-3 font-medium">Estado</th>
+                        <th className="text-left px-4 py-3 font-medium">Ubicacion</th>
+                        <th className="text-left px-4 py-3 font-medium">Calif.</th>
+                        <th className="text-left px-4 py-3 font-medium">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {filtered.map((d) => (
                         <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                            <div className="flex items-center gap-2 lg:gap-3">
-                              <div className={`w-7 h-7 lg:w-9 lg:h-9 rounded-full flex items-center justify-center ${d.status === "online" ? "bg-green-100" : d.status === "busy" ? "bg-orange-100" : "bg-gray-100"}`}>
-                                <Bike className={`w-3.5 h-3.5 lg:w-4 lg:h-4 ${d.status === "online" ? "text-green-600" : d.status === "busy" ? "text-orange-600" : "text-gray-500"}`} />
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center ${d.status === "online" ? "bg-green-100" : d.status === "busy" ? "bg-orange-100" : "bg-gray-100"}`}>
+                                <Bike className={`w-4 h-4 ${d.status === "online" ? "text-green-600" : d.status === "busy" ? "text-orange-600" : "text-gray-500"}`} />
                               </div>
                               <div>
                                 <p className="font-medium text-gray-800 leading-tight">{d.name}</p>
-                                <p className="text-[10px] lg:text-xs text-gray-500">{d.phone}</p>
+                                <p className="text-xs text-gray-500">{d.phone}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{d.vehicle || "-"}</td>
-                          <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{d.licensePlate || "-"}</td>
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                            <span className={`px-1.5 lg:px-2 py-0.5 rounded-full text-[10px] lg:text-xs font-medium ${d.status === "online" ? "bg-green-100 text-green-700" : d.status === "busy" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"}`}>
+                          <td className="px-4 py-3 text-gray-600">{d.vehicle || "-"}</td>
+                          <td className="px-4 py-3 text-gray-600">{d.licensePlate || "-"}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${d.status === "online" ? "bg-green-100 text-green-700" : d.status === "busy" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"}`}>
                               {d.status === "online" ? "Online" : d.status === "busy" ? "Ocupado" : "Offline"}
                             </span>
                           </td>
-                          <td className="hidden lg:table-cell px-4 py-3 text-xs text-gray-500">
+                          <td className="px-4 py-3 text-xs text-gray-500">
                             {d.currentLat && d.currentLng ? `${parseFloat(d.currentLat).toFixed(4)}, ${parseFloat(d.currentLng).toFixed(4)}` : "-"}
                           </td>
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
-                              <Star className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-[#FFC107]" />
+                              <Star className="w-3.5 h-3.5 text-[#FFC107]" />
                               <span className="text-gray-700">{d.rating || "4.5"}</span>
                             </div>
                           </td>
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                            <div className="flex items-center gap-1 lg:gap-2">
-                              <button onClick={() => openEdit(d)} className="text-[10px] lg:text-xs text-blue-600 hover:bg-blue-50 px-1.5 lg:px-2 py-1 rounded-lg transition-colors">Editar</button>
-                              <button onClick={() => handleDeleteDriver(d.id, d.name)} className="p-1 lg:p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="Eliminar">
-                                <Trash2 className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => openEdit(d)} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors">Editar</button>
+                              <button onClick={() => handleDeleteDriver(d.id, d.name)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="Eliminar">
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
@@ -183,6 +184,65 @@ export default function AdminDrivers() {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="lg:hidden flex flex-col gap-3 pb-4">
+                  {filtered.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500 text-sm">Sin repartidores</div>
+                  ) : (
+                    filtered.map((d) => (
+                      <div key={d.id} className="bg-white rounded-xl card-shadow p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${d.status === "online" ? "bg-green-100" : d.status === "busy" ? "bg-orange-100" : "bg-gray-100"}`}>
+                              <Bike className={`w-5 h-5 ${d.status === "online" ? "text-green-600" : d.status === "busy" ? "text-orange-600" : "text-gray-500"}`} />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800 leading-tight">{d.name}</p>
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <Star className="w-3 h-3 text-[#FFC107]" />
+                                {d.rating || "4.5"}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${d.status === "online" ? "bg-green-100 text-green-700" : d.status === "busy" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"}`}>
+                            {d.status === "online" ? "Online" : d.status === "busy" ? "Ocupado" : "Offline"}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="block text-[10px] text-gray-500">Teléfono</span>
+                            <span className="text-gray-800">{d.phone}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] text-gray-500">Vehículo</span>
+                            <span className="text-gray-800">{d.vehicle || "-"}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] text-gray-500">Patente</span>
+                            <span className="text-gray-800">{d.licensePlate || "-"}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] text-gray-500">Ubicación</span>
+                            <span className="text-gray-800">
+                              {d.currentLat && d.currentLng ? `${parseFloat(d.currentLat).toFixed(4)}, ${parseFloat(d.currentLng).toFixed(4)}` : "-"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex justify-end gap-2">
+                          <button onClick={() => openEdit(d)} className="px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                            Editar
+                          </button>
+                          <button onClick={() => handleDeleteDriver(d.id, d.name)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </>

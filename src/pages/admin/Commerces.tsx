@@ -180,57 +180,58 @@ export default function AdminCommerces() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl card-shadow overflow-hidden lg:flex-1 lg:min-h-0">
-                <div className="overflow-x-auto lg:h-full lg:overflow-y-auto">
-                  <table className="w-full text-[11px] lg:text-sm">
+              <div className="bg-white lg:bg-transparent lg:rounded-xl lg:card-shadow lg:overflow-hidden lg:flex-1 lg:min-h-0">
+                {/* Desktop Table View */}
+                <div className="hidden lg:block overflow-x-auto lg:h-full lg:overflow-y-auto bg-white">
+                  <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-gray-600 lg:sticky lg:top-0 lg:z-10">
                       <tr>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Comercio</th>
-                        <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Telefono</th>
-                        <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Comision</th>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Estado</th>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Acciones</th>
+                        <th className="text-left px-4 py-3 font-medium">Comercio</th>
+                        <th className="text-left px-4 py-3 font-medium">Telefono</th>
+                        <th className="text-left px-4 py-3 font-medium">Comision</th>
+                        <th className="text-left px-4 py-3 font-medium">Estado</th>
+                        <th className="text-left px-4 py-3 font-medium">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {filtered.map((c) => (
                         <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                            <div className="flex items-center gap-2 lg:gap-3">
-                              <div className="w-7 h-7 lg:w-9 lg:h-9 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {c.logo ? (
                                   <img src={c.logo} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<svg class=\"w-4 h-4 text-gray-500\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"/><path d=\"M21 15l-5-5L5 21\"/></svg>' }} />
                                 ) : (
-                                  <Store className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
+                                  <Store className="w-4 h-4 text-gray-500" />
                                 )}
                               </div>
                               <div>
                                 <p className="font-medium text-gray-800 leading-tight">{c.name}</p>
-                                <div className="flex items-center gap-1 text-[10px] lg:text-xs text-gray-500">
-                                  <Star className="w-2.5 h-2.5 lg:w-3 lg:h-3 text-[#FFC107]" />
+                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                  <Star className="w-3 h-3 text-[#FFC107]" />
                                   {c.rating || "4.0"}
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{c.phone || "-"}</td>
-                          <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{c.commissionRate ? `${c.commissionRate}%` : "-"}</td>
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                            <span className={`px-1.5 lg:px-2 py-0.5 rounded-full text-[10px] lg:text-xs font-medium ${c.status === "active" ? "bg-green-100 text-green-700" : c.status === "pending" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-                              {c.status === "active" ? "Activo" : c.status === "pending" ? "Pend" : "Susp"}
+                          <td className="px-4 py-3 text-gray-600">{c.phone || "-"}</td>
+                          <td className="px-4 py-3 text-gray-600">{c.commissionRate ? `${c.commissionRate}%` : "-"}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.status === "active" ? "bg-green-100 text-green-700" : c.status === "pending" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
+                              {c.status === "active" ? "Activo" : c.status === "pending" ? "Pendiente" : "Suspendido"}
                             </span>
                           </td>
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                            <div className="flex items-center gap-1 lg:gap-2">
-                              <button onClick={() => toggleStatus(c.id)} className="p-1 lg:p-1.5 text-gray-400 hover:text-[#2E7D32] rounded-lg hover:bg-green-50" title={c.status === "active" ? "Suspender" : "Activar"}>
-                                {c.status === "active" || c.status === "pending" ? <EyeOff className="w-3.5 h-3.5 lg:w-4 lg:h-4" /> : <Eye className="w-3.5 h-3.5 lg:w-4 lg:h-4" />}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => toggleStatus(c.id)} className="p-1.5 text-gray-400 hover:text-[#2E7D32] rounded-lg hover:bg-green-50" title={c.status === "active" ? "Suspender" : "Activar"}>
+                                {c.status === "active" || c.status === "pending" ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
-                              <button onClick={() => openEdit(c)} className="p-1 lg:p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50">
+                              <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50" title="Editar">
                                 <span className="hidden lg:inline text-xs font-medium">Editar</span>
                                 <span className="lg:hidden text-[10px] font-medium uppercase">Ed</span>
                               </button>
-                              <button onClick={() => openDeleteConfirm(c)} className="p-1 lg:p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="Eliminar">
-                                <Trash2 className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                              <button onClick={() => openDeleteConfirm(c)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="Eliminar">
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
@@ -241,6 +242,62 @@ export default function AdminCommerces() {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="lg:hidden flex flex-col gap-3 pb-4">
+                  {filtered.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500 text-sm">Sin comercios registrados</div>
+                  ) : (
+                    filtered.map((c) => (
+                      <div key={c.id} className="bg-white rounded-xl card-shadow p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {c.logo ? (
+                                <img src={c.logo} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<svg class=\"w-4 h-4 text-gray-500\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"/><path d=\"M21 15l-5-5L5 21\"/></svg>' }} />
+                              ) : (
+                                <Store className="w-5 h-5 text-gray-500" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800 leading-tight">{c.name}</p>
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <Star className="w-3 h-3 text-[#FFC107]" />
+                                {c.rating || "4.0"}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === "active" ? "bg-green-100 text-green-700" : c.status === "pending" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
+                            {c.status === "active" ? "Activo" : c.status === "pending" ? "Pend" : "Susp"}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="block text-[10px] text-gray-500">Teléfono</span>
+                            <span className="text-gray-800">{c.phone || "-"}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] text-gray-500">Comisión</span>
+                            <span className="text-gray-800">{c.commissionRate ? `${c.commissionRate}%` : "-"}</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex justify-end gap-2">
+                          <button onClick={() => toggleStatus(c.id)} className="p-2 text-gray-400 hover:text-[#2E7D32] bg-gray-50 hover:bg-green-50 rounded-lg transition-colors" title={c.status === "active" ? "Suspender" : "Activar"}>
+                            {c.status === "active" || c.status === "pending" ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                          <button onClick={() => openEdit(c)} className="px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                            Editar
+                          </button>
+                          <button onClick={() => openDeleteConfirm(c)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </>

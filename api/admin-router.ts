@@ -185,7 +185,7 @@ export const adminRouter = createRouter({
         if (!commerceStats[item.commerceId]) {
           commerceStats[item.commerceId] = { id: item.commerceId, name: commerce[0].name, orders: 0, revenue: 0 };
         }
-        commerceStats[item.commerceId].orders += item.quantity;
+        commerceStats[item.commerceId].orders += parseFloat(String(item.quantity) || "0");
         commerceStats[item.commerceId].revenue += parseFloat(item.total);
       }
       
@@ -212,7 +212,7 @@ export const adminRouter = createRouter({
             revenue: 0,
           };
         }
-        productStats[item.productId].sold += item.quantity;
+        productStats[item.productId].sold += parseFloat(String(item.quantity) || "0");
         productStats[item.productId].revenue += parseFloat(item.total);
       }
       
@@ -455,7 +455,7 @@ export const adminRouter = createRouter({
         passwordHash: hash,
         vehicle: input.vehicle || null,
         licensePlate: input.licensePlate || null,
-        commissionRate: input.commissionRate || "80.00",
+        commissionRate: input.commissionRate || "75.00",
       }).returning();
       emit("admin:dashboard", { type: "dashboard_update" });
       return result[0];
@@ -528,6 +528,8 @@ export const adminRouter = createRouter({
 
   driverEarningsBreakdown: adminQuery.query(async () => {
     const db = getDb();
+    
+    // Lo que ganaron los repartidores
     const earnings = await db
       .select({
         driverId: driverEarnings.driverId,
@@ -537,6 +539,16 @@ export const adminRouter = createRouter({
       .from(driverEarnings)
       .groupBy(driverEarnings.driverId, driverEarnings.type);
 
+    // Lo que cobró la app en total por los envíos de esos repartidores
+    const driverOrders = await db
+      .select({
+        driverId: orders.driverId,
+        totalFees: sql<string>`sum(${orders.deliveryFee})`,
+      })
+      .from(orders)
+      .where(eq(orders.status, "delivered"))
+      .groupBy(orders.driverId);
+
     const d = await db.select({
       id: drivers.id,
       name: drivers.name,
@@ -544,7 +556,9 @@ export const adminRouter = createRouter({
     }).from(drivers);
 
     const driverMap = new Map(d.map(r => [r.id, r]));
-    const grouped = new Map<number, { driverId: number; name: string; commissionRate: string; deliveryFee: string; tips: string; bonuses: string; total: string }>();
+    const feeMap = new Map(driverOrders.map(r => [r.driverId, parseFloat(r.totalFees || "0")]));
+    
+    const grouped = new Map<number, { driverId: number; name: string; commissionRate: string; deliveryFee: string; adminCommission: string; total: string }>();
 
     for (const e of earnings) {
       if (!grouped.has(e.driverId)) {
@@ -552,19 +566,23 @@ export const adminRouter = createRouter({
         grouped.set(e.driverId, {
           driverId: e.driverId,
           name: driver?.name || "-",
-          commissionRate: driver?.commissionRate || "80.00",
+          commissionRate: driver?.commissionRate || "75.00",
           deliveryFee: "0.00",
-          tips: "0.00",
-          bonuses: "0.00",
+          adminCommission: "0.00",
           total: "0.00",
         });
       }
       const entry = grouped.get(e.driverId)!;
       const val = parseFloat(e.amount || "0");
       if (e.type === "delivery_fee") entry.deliveryFee = val.toFixed(2);
-      else if (e.type === "tip") entry.tips = val.toFixed(2);
-      else if (e.type === "bonus") entry.bonuses = val.toFixed(2);
       entry.total = (parseFloat(entry.total) + val).toFixed(2);
+    }
+
+    // Calcular la comisión del admin por cada repartidor
+    for (const entry of grouped.values()) {
+       const totalFee = feeMap.get(entry.driverId) || 0;
+       const driverFee = parseFloat(entry.deliveryFee);
+       entry.adminCommission = (totalFee - driverFee).toFixed(2);
     }
 
     return Array.from(grouped.values());
@@ -702,18 +720,51 @@ export const adminRouter = createRouter({
           customerName = `${cust[0].firstName} ${cust[0].lastName}`;
         }
       }
+      let commerceCommissionRate = 10;
+      let driverCommissionRate = 75;
+
       let driverName = "";
       if (order.driverId) {
         const drv = await db.select().from(drivers).where(eq(drivers.id, order.driverId));
         if (drv.length > 0) {
           driverName = drv[0].name;
+          driverCommissionRate = parseFloat(drv[0].commissionRate || "75.00");
         }
       }
       let commerceName = "";
       if (items.length > 0) {
         const commerceIds = [...new Set(items.map(i => i.commerceId))];
         const coms = await db.select().from(commerces).where(sql`${commerces.id} IN (${sql.join(commerceIds, sql`, `)})`);
-        commerceName = coms.length > 0 ? coms[0].name : "";
+        if (coms.length > 0) {
+          commerceName = coms[0].name;
+          commerceCommissionRate = parseFloat(coms[0].commissionRate || "10.00");
+        }
+      }
+
+      const totalFee = parseFloat(order.deliveryFee || "0");
+      const subtotal = parseFloat(order.subtotal || "0");
+      
+      const commerceCommission = subtotal * (commerceCommissionRate / 100);
+      const driverCut = totalFee * (driverCommissionRate / 100);
+      const adminDeliveryCommission = totalFee - driverCut;
+
+      let commerceOwed = 0;
+      let commerceAction = "cobrar"; 
+      let driverOwed = 0;
+      let driverAction = "cobrar"; 
+      
+      if (order.paymentMethod === "transfer") {
+         commerceOwed = subtotal - commerceCommission;
+         commerceAction = "pagar";
+         
+         driverOwed = driverCut;
+         driverAction = "pagar";
+      } else {
+         commerceOwed = commerceCommission;
+         commerceAction = "cobrar";
+         
+         driverOwed = adminDeliveryCommission;
+         driverAction = "cobrar";
       }
       
       enrichedOrders.push({
@@ -722,11 +773,37 @@ export const adminRouter = createRouter({
         customerName,
         driverName,
         commerceName,
+        commerceOwed: commerceOwed.toFixed(2),
+        commerceAction,
+        driverOwed: driverOwed.toFixed(2),
+        driverAction,
       });
     }
     
     return enrichedOrders;
   }),
+
+  toggleCommerceSettled: adminQuery
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const order = await db.select().from(orders).where(eq(orders.id, input.id));
+      if (order.length === 0) return { success: false };
+      await db.update(orders).set({ commerceSettled: !order[0].commerceSettled }).where(eq(orders.id, input.id));
+      emit("admin:dashboard", { type: "dashboard_update" });
+      return { success: true };
+    }),
+
+  toggleDriverSettled: adminQuery
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const order = await db.select().from(orders).where(eq(orders.id, input.id));
+      if (order.length === 0) return { success: false };
+      await db.update(orders).set({ driverSettled: !order[0].driverSettled }).where(eq(orders.id, input.id));
+      emit("admin:dashboard", { type: "dashboard_update" });
+      return { success: true };
+    }),
 
   orderDetail: adminQuery
     .input(z.object({ id: z.number() }))

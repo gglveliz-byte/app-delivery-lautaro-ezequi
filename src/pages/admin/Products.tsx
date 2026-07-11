@@ -104,43 +104,78 @@ export default function AdminProducts() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl card-shadow overflow-hidden lg:flex-1 lg:min-h-0">
-                <div className="overflow-x-auto lg:h-full lg:overflow-y-auto">
-<table className="w-full text-[11px] lg:text-sm">
+              <div className="bg-white lg:bg-transparent lg:rounded-xl lg:card-shadow lg:overflow-hidden lg:flex-1 lg:min-h-0">
+                {/* Desktop Table View */}
+                <div className="hidden lg:block overflow-x-auto lg:h-full lg:overflow-y-auto bg-white">
+                  <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
-                      <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">#</th>
-                      <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Producto</th>
-                      <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Comercio</th>
-                      <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Categoria</th>
-                      <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Vendidos</th>
-                      <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Fact.</th>
+                      <th className="text-left px-4 py-3 font-medium">#</th>
+                      <th className="text-left px-4 py-3 font-medium">Producto</th>
+                      <th className="text-left px-4 py-3 font-medium">Comercio</th>
+                      <th className="text-left px-4 py-3 font-medium">Categoria</th>
+                      <th className="text-left px-4 py-3 font-medium">Vendidos</th>
+                      <th className="text-left px-4 py-3 font-medium">Fact.</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {topProducts.map((p, i) => (
                       <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                          <span className={`w-5 h-5 lg:w-6 lg:h-6 rounded-full flex items-center justify-center text-[10px] lg:text-xs font-bold ${
+                        <td className="px-4 py-3">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                             i < 3 ? "bg-[#2E7D32] text-white" : "bg-gray-100 text-gray-600"
                           }`}>
                             {i + 1}
                           </span>
                         </td>
-                        <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium text-gray-800 leading-tight">
+                        <td className="px-4 py-3 font-medium text-gray-800 leading-tight">
                             {p.name}
-                            <div className="lg:hidden text-[10px] text-gray-500 font-normal">{p.commerceName}</div>
                           </td>
-                          <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{p.commerceName}</td>
-                          <td className="hidden lg:table-cell px-4 py-3">
+                          <td className="px-4 py-3 text-gray-600">{p.commerceName}</td>
+                          <td className="px-4 py-3">
                             <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{p.category || "-"}</span>
                           </td>
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 text-gray-800 font-medium">{Number(p.sold || 0).toLocaleString()}</td>
-                          <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium text-[#2E7D32]">${Number(p.revenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                          <td className="px-4 py-3 text-gray-800 font-medium">{Number(p.sold || 0).toLocaleString()}</td>
+                          <td className="px-4 py-3 font-medium text-[#2E7D32]">${Number(p.revenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="lg:hidden flex flex-col gap-3 pb-4">
+                  {topProducts.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500 text-sm">Sin datos</div>
+                  ) : (
+                    topProducts.map((p, i) => (
+                      <div key={p.id} className="bg-white rounded-xl card-shadow p-4 flex flex-col gap-2">
+                        <div className="flex items-start gap-3">
+                          <span className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
+                            i < 3 ? "bg-[#2E7D32] text-white" : "bg-gray-100 text-gray-600"
+                          }`}>
+                            {i + 1}
+                          </span>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-800 leading-tight">{p.name}</p>
+                            <p className="text-[10px] text-gray-500">{p.commerceName}</p>
+                          </div>
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full shrink-0">{p.category || "-"}</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-100 text-sm">
+                          <div>
+                            <span className="block text-[10px] text-gray-500">Vendidos</span>
+                            <span className="font-medium text-gray-800">{Number(p.sold || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="block text-[10px] text-gray-500">Facturación</span>
+                            <span className="font-medium text-[#2E7D32]">${Number(p.revenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
               </>
@@ -164,48 +199,49 @@ export default function AdminProducts() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl card-shadow overflow-hidden lg:flex-1 lg:min-h-0">
+              <div className="bg-white lg:bg-transparent lg:rounded-xl lg:card-shadow lg:overflow-hidden lg:flex-1 lg:min-h-0">
                 {loadingAll ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="w-5 h-5 lg:w-6 lg:h-6 border-2 border-[#2E7D32] border-t-transparent rounded-full animate-spin" />
+                  <div className="flex items-center justify-center py-16 bg-white rounded-xl">
+                    <div className="w-6 h-6 border-2 border-[#2E7D32] border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : (
-                  <div className="overflow-x-auto lg:h-full lg:overflow-y-auto">
-<table className="w-full text-[11px] lg:text-sm">
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block overflow-x-auto lg:h-full lg:overflow-y-auto bg-white">
+                      <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-gray-600 lg:sticky lg:top-0 lg:z-10">
                       <tr>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Img</th>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Nombre</th>
-                        <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Comercio</th>
-                        <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Categoría</th>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Precio</th>
-                        <th className="text-left px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium">Estado</th>
-                          <th className="hidden lg:table-cell text-left px-4 py-3 font-medium">Dest.</th>
+                        <th className="text-left px-4 py-3 font-medium">Img</th>
+                        <th className="text-left px-4 py-3 font-medium">Nombre</th>
+                        <th className="text-left px-4 py-3 font-medium">Comercio</th>
+                        <th className="text-left px-4 py-3 font-medium">Categoría</th>
+                        <th className="text-left px-4 py-3 font-medium">Precio</th>
+                        <th className="text-left px-4 py-3 font-medium">Estado</th>
+                        <th className="text-left px-4 py-3 font-medium">Dest.</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {filteredProducts.map((p) => (
                           <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
+                            <td className="px-4 py-3">
                               {p.image ? (
-                                <img src={p.image} alt={p.name} className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg object-cover" />
+                                <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover" />
                               ) : (
-                                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                                  <Package className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-gray-400" />
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                                  <Package className="w-4 h-4 text-gray-400" />
                                 </div>
                               )}
                             </td>
-                            <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium text-gray-800 leading-tight">
+                            <td className="px-4 py-3 font-medium text-gray-800 leading-tight">
                               {p.name}
-                              <div className="lg:hidden text-[10px] text-gray-500 font-normal">{p.commerceName}</div>
                             </td>
-                            <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{p.commerceName || "-"}</td>
-                            <td className="hidden lg:table-cell px-4 py-3">
+                            <td className="px-4 py-3 text-gray-600">{p.commerceName || "-"}</td>
+                            <td className="px-4 py-3">
                               <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{p.category || "-"}</span>
                             </td>
-                            <td className="px-1.5 lg:px-4 py-1.5 lg:py-3 font-medium text-gray-800">${Number(p.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                            <td className="px-1.5 lg:px-4 py-1.5 lg:py-3">
-                              <span className={`text-[10px] lg:text-xs px-1.5 lg:px-2 py-0.5 rounded-full font-medium ${
+                            <td className="px-4 py-3 font-medium text-gray-800">${Number(p.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td className="px-4 py-3">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                                 p.isAvailable === "yes"
                                   ? "bg-green-50 text-green-700"
                                   : "bg-red-50 text-red-600"
@@ -213,7 +249,7 @@ export default function AdminProducts() {
                                 {p.isAvailable === "yes" ? "Disp." : "No Disp."}
                               </span>
                             </td>
-                            <td className="hidden lg:table-cell px-4 py-3">
+                            <td className="px-4 py-3">
                               {p.isFeatured === "yes" ? (
                                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                               ) : (
@@ -232,6 +268,54 @@ export default function AdminProducts() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Mobile Card View */}
+                  <div className="lg:hidden flex flex-col gap-3 pb-4">
+                    {filteredProducts.length === 0 && !loadingAll ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">No se encontraron productos</div>
+                    ) : (
+                      filteredProducts.map((p) => (
+                        <div key={p.id} className="bg-white rounded-xl card-shadow p-4 flex gap-3">
+                          <div className="shrink-0">
+                            {p.image ? (
+                              <img src={p.image} alt={p.name} className="w-14 h-14 rounded-lg object-cover" />
+                            ) : (
+                              <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center">
+                                <Package className="w-6 h-6 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <p className="font-medium text-gray-800 leading-tight truncate">{p.name}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{p.commerceName}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="font-bold text-[#2E7D32]">${Number(p.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                p.isAvailable === "yes"
+                                  ? "bg-green-50 text-green-700"
+                                  : "bg-red-50 text-red-600"
+                              }`}>
+                                {p.isAvailable === "yes" ? "Disponible" : "Agotado"}
+                              </span>
+                              <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{p.category || "-"}</span>
+                              {p.isFeatured === "yes" && (
+                                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 ml-auto" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
                 )}
               </div>
             </div>

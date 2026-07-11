@@ -124,7 +124,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-2 xl:grid-cols-4 gap-1.5 lg:gap-3">
                 <KpiCard icon={ShoppingBag} label="Pedidos totales" value={String(kpi.totalOrders)} color="bg-blue-100 text-blue-600" />
                 <KpiCard icon={Store} label="Comercios" value={`${kpi.activeCommerces}/${kpi.totalCommerces}`} color="bg-green-100 text-green-600" />
-                <KpiCard icon={Truck} label="Repartidores" value={`${kpi.onlineDrivers} on`} color="bg-orange-100 text-orange-600" />
+                <KpiCard icon={Truck} label="Repartidores (Activos)" value={String(kpi.onlineDrivers)} color="bg-orange-100 text-orange-600" />
                 <KpiCard icon={Users} label="Clientes" value={String(kpi.totalCustomers)} color="bg-purple-100 text-purple-600" />
               </div>
 
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xs lg:text-sm font-semibold text-gray-800">Ventas</h2>
+                  <h2 className="text-xs lg:text-sm font-semibold text-gray-800">Ventas Totales de Comercios (Bruto)</h2>
                   <div className="flex bg-gray-100 rounded-lg p-0.5">
                     {(["day", "week", "month", "year"] as Period[]).map((p) => (
                       <button
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
               {/* Comisiones Chart */}
               <div className="bg-white rounded-xl card-shadow p-2 lg:p-4">
                 <div className="flex items-center justify-between mb-2 lg:mb-3">
-                  <h2 className="text-xs lg:text-sm font-semibold text-gray-800">Ganancias por Comisiones</h2>
+                  <h2 className="text-xs lg:text-sm font-semibold text-gray-800">Tu Ganancia: Comisiones a Comercios</h2>
                   <div className="flex bg-gray-100 rounded-lg p-0.5">
                     {(["day", "week", "month", "year"] as Period[]).map((p) => (
                       <button
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
               {/* Delivery Net Chart */}
               <div className="bg-white rounded-xl card-shadow p-2 lg:p-4">
                 <div className="flex items-center justify-between mb-2 lg:mb-3">
-                  <h2 className="text-xs lg:text-sm font-semibold text-gray-800">Ganancias por Envíos (Neto)</h2>
+                  <h2 className="text-xs lg:text-sm font-semibold text-gray-800">Tu Ganancia: Envíos (Neto)</h2>
                   <div className="flex bg-gray-100 rounded-lg p-0.5">
                     {(["day", "week", "month", "year"] as Period[]).map((p) => (
                       <button
@@ -292,9 +292,9 @@ export default function AdminDashboard() {
                         <span className={`w-5 h-5 lg:w-6 lg:h-6 rounded-full flex items-center justify-center text-[10px] lg:text-xs font-bold ${i < 3 ? "bg-[#2E7D32] text-white" : "bg-gray-100 text-gray-600"}`}>
                           {i + 1}
                         </span>
-                        <div className="flex-1 flex justify-between items-center">
-                          <p className="text-xs lg:text-sm font-medium text-gray-800">{comm.name}</p>
-                          <div className="flex items-center gap-2 text-[10px] lg:text-xs text-gray-500">
+                        <div className="flex-1 flex justify-between items-center min-w-0">
+                          <p className="text-xs lg:text-sm font-medium text-gray-800 truncate mr-2">{comm.name}</p>
+                          <div className="flex items-center gap-2 text-[10px] lg:text-xs text-gray-500 whitespace-nowrap">
                             <span>{comm.orders} ped.</span>
                             <span>${comm.revenue.toFixed(2)}</span>
                           </div>
@@ -393,7 +393,7 @@ export default function AdminDashboard() {
                 <div className="p-3 border-b border-gray-100 shrink-0">
                   <h2 className="text-xs font-semibold text-gray-800 flex items-center gap-2">
                     <Truck className="w-3.5 h-3.5 text-[#2E7D32]" />
-                    Ganancias de repartidores
+                    Comisiones por Repartidor
                   </h2>
                 </div>
                 {driverEarnings.length > 0 ? (
@@ -403,20 +403,16 @@ export default function AdminDashboard() {
                       <thead className="bg-gray-50 text-gray-500 sticky top-0 z-10">
                         <tr>
                           <th className="text-left px-3 py-2 font-medium">Repartidor</th>
-                          <th className="text-right px-3 py-2 font-medium">Envios</th>
-                          <th className="text-right px-3 py-2 font-medium">Propinas</th>
-                          <th className="text-right px-3 py-2 font-medium">Bonos</th>
-                          <th className="text-right px-3 py-2 font-medium">Total</th>
+                          <th className="text-right px-3 py-2 font-medium">Ganancia Repartidor</th>
+                          <th className="text-right px-3 py-2 font-medium">Tu Comisión</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {driverEarnings.map((d) => (
                           <tr key={d.driverId} className="hover:bg-gray-50">
                             <td className="px-3 py-2 text-gray-800 font-medium truncate max-w-[100px]">{d.name}</td>
-                            <td className="px-3 py-2 text-right text-gray-600">${d.deliveryFee}</td>
-                            <td className="px-3 py-2 text-right text-gray-600">${d.tips}</td>
-                            <td className="px-3 py-2 text-right text-gray-600">${d.bonuses}</td>
-                            <td className="px-3 py-2 text-right text-[#2E7D32] font-semibold">${d.total}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">${d.total}</td>
+                            <td className="px-3 py-2 text-right text-[#2E7D32] font-semibold">${d.adminCommission}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -434,22 +430,14 @@ export default function AdminDashboard() {
                               <p className="text-sm font-semibold text-gray-800">{d.name}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-bold text-[#2E7D32]">${d.total}</p>
-                              <p className="text-[10px] text-gray-400">Total ganado</p>
+                              <p className="text-sm font-bold text-[#2E7D32]">${d.adminCommission}</p>
+                              <p className="text-[10px] text-gray-400">Tu Comisión</p>
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 bg-gray-50 rounded-lg p-2 text-center">
+                          <div className="bg-gray-50 rounded-lg p-2 text-center">
                             <div>
-                              <p className="text-[10px] text-gray-500">Envíos</p>
-                              <p className="text-xs font-semibold text-gray-700">${d.deliveryFee}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500">Propinas</p>
-                              <p className="text-xs font-semibold text-gray-700">${d.tips}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500">Bonos</p>
-                              <p className="text-xs font-semibold text-gray-700">${d.bonuses}</p>
+                              <p className="text-[10px] text-gray-500">Ganancia Repartidor</p>
+                              <p className="text-xs font-semibold text-gray-700">${d.total}</p>
                             </div>
                           </div>
                         </div>
