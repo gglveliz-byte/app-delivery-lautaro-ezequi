@@ -128,7 +128,7 @@ export const commerceRouter = createRouter({
             if (!productSales[item.productId]) {
               productSales[item.productId] = { name: item.productName, qty: 0, revenue: 0 };
             }
-            productSales[item.productId].qty += item.quantity;
+            productSales[item.productId].qty += parseFloat(item.quantity);
             productSales[item.productId].revenue += parseFloat(item.total);
           }
           totalSales += orderCommerceTotal;
